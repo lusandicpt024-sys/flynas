@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flynas - Personal Cloud Server</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Title Bar (for Linux) -->
+        <div class="title-bar">
+            <div class="title-bar-left">
+                <img src="../../assets/icons/app.png" alt="Flynas" class="app-icon">
+                <span class="app-title">Flynas</span>
+            </div>
+            <div class="title-bar-right">
+                <button id="minimize-btn" class="title-bar-btn">−</button>
+                <button id="maximize-btn" class="title-bar-btn">□</button>
+                <button id="close-btn" class="title-bar-btn close">×</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-container">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="user-section">
+                    <div id="user-avatar" class="user-avatar">
+                        <i class="icon-user"></i>
+                    </div>
+                    <div id="user-info" class="user-info">
+                        <div class="user-name">Not logged in</div>
+                        <div class="user-status">Disconnected</div>
+                    </div>
+                    <button id="login-btn" class="btn-login">Login</button>
+                </div>
+
+                <nav class="navigation">
+                    <ul>
+                        <li><a href="#" data-section="files" class="nav-link active">
+                            <i class="icon-folder"></i> Files
+                        </a></li>
+                        <li><a href="#" data-section="shared" class="nav-link">
+                            <i class="icon-share"></i> Shared
+                        </a></li>
+                        <li><a href="#" data-section="devices" class="nav-link">
+                            <i class="icon-device"></i> Devices
+                        </a></li>
+                        <li><a href="#" data-section="settings" class="nav-link">
+                            <i class="icon-settings"></i> Settings
+                        </a></li>
+                    </ul>
+                </nav>
+
+                <div class="storage-info">
+                    <div class="storage-title">Storage</div>
+                    <div class="storage-bar">
+                        <div id="storage-used" class="storage-used" style="width: 45%;"></div>
+                    </div>
+                    <div class="storage-text">
+                        <span id="storage-used-text">45 GB used</span> of 
+                        <span id="storage-total-text">100 GB</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="content">
+                <!-- Toolbar -->
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <button id="back-btn" class="btn-icon" disabled>
+                            <i class="icon-arrow-left"></i>
+                        </button>
+                        <button id="forward-btn" class="btn-icon" disabled>
+                            <i class="icon-arrow-right"></i>
+                        </button>
+                        <button id="up-btn" class="btn-icon">
+                            <i class="icon-arrow-up"></i>
+                        </button>
+                        <div class="breadcrumb">
+                            <span class="breadcrumb-item active">Home</span>
+                        </div>
+                    </div>
+                    <div class="toolbar-right">
+                        <button id="upload-btn" class="btn-primary">
+                            <i class="icon-upload"></i> Upload
+                        </button>
+                        <button id="new-folder-btn" class="btn-secondary">
+                            <i class="icon-folder-plus"></i> New Folder
+                        </button>
+                        <button id="view-toggle-btn" class="btn-icon">
+                            <i class="icon-grid"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- File Browser -->
+                <div class="file-browser">
+                    <div id="files-section" class="section active">
+                        <div class="file-grid" id="file-grid">
+                            <!-- Files and folders will be populated here -->
+                        </div>
+                        
+                        <div class="drop-zone" id="drop-zone">
+                            <div class="drop-zone-content">
+                                <i class="icon-upload-cloud"></i>
+                                <h3>Drop files here to upload</h3>
+                                <p>Or click the upload button</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="shared-section" class="section">
+                        <h2>Shared Folders</h2>
+                        <div class="shared-list">
+                            <!-- Shared folders will be populated here -->
+                        </div>
+                    </div>
+
+                    <div id="devices-section" class="section">
+                        <h2>Connected Devices</h2>
+                        <div class="devices-list">
+                            <!-- Connected devices will be populated here -->
+                        </div>
+                    </div>
+
+                    <div id="settings-section" class="section">
+                        <h2>Settings</h2>
+                        <div class="settings-form">
+                            <div class="setting-group">
+                                <label for="storage-path">Storage Path:</label>
+                                <div class="input-group">
+                                    <input type="text" id="storage-path" readonly>
+                                    <button id="browse-storage-btn" class="btn-secondary">Browse</button>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="encryption-enabled"> 
+                                    Enable file encryption
+                                </label>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="auto-sync"> 
+                                    Auto-sync with browser extension
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span id="status-message">Ready</span>
+            </div>
+            <div class="status-right">
+                <span id="connection-status">Disconnected</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for New Folder -->
+    <div id="new-folder-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Folder</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="folder-name-input" placeholder="Folder name" maxlength="255">
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-folder-btn" class="btn-secondary">Cancel</button>
+                <button id="create-folder-btn" class="btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div id="progress-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="progress-title">Uploading Files</h3>
+            </div>
+            <div class="modal-body">
+                <div id="progress-list" class="progress-list">
+                    <!-- Progress items will be added here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-progress-btn" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts/app.js"></script>
+</body>
+</html>

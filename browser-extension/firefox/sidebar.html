@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flynas Cloud</title>
+    <link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <img src="../assets/icons/icon48.png" alt="Flynas" class="logo-img">
+                <span class="logo-text">Flynas</span>
+            </div>
+            <div class="header-actions">
+                <button id="sync-btn" class="icon-btn" title="Sync">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                    </svg>
+                </button>
+                <button id="settings-btn" class="icon-btn" title="Settings">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Authentication -->
+        <div id="auth-section" class="section hidden">
+            <div class="auth-content">
+                <h2>Sign in to Flynas</h2>
+                <p>Connect to your personal cloud storage</p>
+                <button id="sign-in-btn" class="primary-btn">Sign In with Flynas</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-content" class="hidden">
+            <!-- Upload Area -->
+            <div id="upload-area" class="upload-section">
+                <div class="upload-dropzone" id="dropzone">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                    </svg>
+                    <p class="upload-text">Drop files here to upload</p>
+                    <p class="upload-subtext">or click to browse</p>
+                    <input type="file" id="file-input" multiple accept="*/*" style="display: none;">
+                </div>
+                <div class="upload-progress hidden" id="upload-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <span class="progress-text" id="progress-text">Uploading...</span>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="navigation">
+                <div class="breadcrumb" id="breadcrumb">
+                    <span class="breadcrumb-item active" data-path="/">Home</span>
+                </div>
+                <div class="nav-actions">
+                    <button id="new-folder-btn" class="secondary-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"/>
+                        </svg>
+                        New Folder
+                    </button>
+                </div>
+            </div>
+
+            <!-- File List -->
+            <div class="file-list" id="file-list">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <span>Loading files...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Context Menu -->
+        <div id="context-menu" class="context-menu hidden">
+            <div class="context-item" data-action="download">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+                </svg>
+                Download
+            </div>
+            <div class="context-item" data-action="share">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.91 18,21.91C19.61,21.91 20.92,20.61 20.92,19A1.84,1.84 0 0,0 18,16.08Z"/>
+                </svg>
+                Share
+            </div>
+            <div class="context-item" data-action="rename">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                </svg>
+                Rename
+            </div>
+            <div class="context-divider"></div>
+            <div class="context-item danger" data-action="delete">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                </svg>
+                Delete
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for New Folder -->
+    <div id="new-folder-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Create New Folder</h3>
+            <input type="text" id="folder-name-input" placeholder="Folder name" maxlength="255">
+            <div class="modal-actions">
+                <button id="cancel-folder-btn" class="secondary-btn">Cancel</button>
+                <button id="create-folder-btn" class="primary-btn">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Settings</h3>
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="auto-sync"> Auto-sync files
+                </label>
+            </div>
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="encryption-enabled"> Enable encryption
+                </label>
+            </div>
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="notifications"> Show notifications
+                </label>
+            </div>
+            <div class="setting-group">
+                <label for="api-url">API URL:</label>
+                <input type="url" id="api-url" placeholder="https://api.flynas.com">
+            </div>
+            <div class="modal-actions">
+                <button id="close-settings-btn" class="secondary-btn">Close</button>
+                <button id="save-settings-btn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="sidebar.js"></script>
+</body>
+</html>

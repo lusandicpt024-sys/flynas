@@ -1,0 +1,75 @@
+{
+  "manifest_version": 2,
+  "name": "Flynas Cloud",
+  "version": "1.0.0",
+  "description": "Turn any internet-capable device into a personal cloud server. Access your files anywhere with secure drag-and-drop functionality.",
+  
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "contextMenus",
+    "notifications",
+    "downloads",
+    "scripting",
+    "tabs",
+    "<all_urls>"
+  ],
+
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["dragDrop.js"],
+      "run_at": "document_end"
+    }
+  ],
+
+  "browser_action": {
+    "default_popup": "sidebar.html",
+    "default_title": "Flynas Cloud",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+
+  "commands": {
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Toggle Flynas sidebar"
+    },
+    "quick-upload": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U",
+        "mac": "Command+Shift+U"
+      },
+      "description": "Show quick upload dialog"
+    }
+  },
+
+  "web_accessible_resources": [
+    "assets/icons/*.png",
+    "sidebar.html",
+    "sidebar.css"
+  ],
+
+  "content_security_policy": "script-src 'self'; object-src 'self'",
+
+  "homepage_url": "https://flynas.com",
+
+  "author": "Flynas Team"
+}
