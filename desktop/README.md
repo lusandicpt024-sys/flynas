@@ -26,15 +26,16 @@ Cross-platform desktop applications for Linux and Windows that provide native ac
 ## Requirements
 
 ### System Requirements
-- **Linux**: Ubuntu 18.04+, Fedora 32+, or equivalent
+- **Linux**: Ubuntu 18.04+, Fedora 32+, or equivalent (Pop!_OS tested)
 - **Windows**: Windows 10 or later
-- **Node.js**: 16.x or later
-- **npm**: 7.x or later
+- **Node.js**: 14.x or later (v14.21.3+ tested)
+- **npm**: 6.x or later
 
 ### Dependencies
-- Electron 26.x
+- Electron 28.x
 - Node.js native modules for file system access
 - System tray support
+- Shared TypeScript modules (compiled to JavaScript)
 
 ## Installation
 
@@ -42,14 +43,31 @@ Cross-platform desktop applications for Linux and Windows that provide native ac
 
 #### Linux
 ```bash
-cd desktop/linux
+# Build shared modules first
+cd shared
+npm install
+npm run build
+
+# Install and run desktop app
+cd ../desktop/linux
 npm install
 npm start
 ```
 
+**Launch from Applications Menu:**
+- Desktop entry installed at `/usr/share/applications/flynas.desktop`
+- Search for "Flynas" in your application launcher
+- Or run: `gtk-launch flynas`
+
 #### Windows
 ```bash
-cd desktop/windows
+# Build shared modules first
+cd shared
+npm install
+npm run build
+
+# Install and run desktop app
+cd ../desktop/windows
 npm install
 npm start
 ```
@@ -301,12 +319,49 @@ Check logs:
 - AppImage doesn't require installation
 - `.deb` for Debian/Ubuntu
 - `.rpm` for Fedora/RHEL
+- **Desktop Entry**: System-wide launcher installed at `/usr/share/applications/flynas.desktop`
+- **Launcher Script**: `flynas.sh` ensures proper directory context
+- **Application Icon**: Uses `assets/icons/app.png`
 
 ### Windows
 - NSIS installer with auto-update support
 - Start menu integration
 - File association support
 - Windows Defender may flag first run
+
+## Desktop Entry (Linux)
+
+The desktop entry allows launching Flynas from your application menu.
+
+**Files:**
+- `/usr/share/applications/flynas.desktop` - Desktop entry (system-wide)
+- `~/.local/share/applications/flynas.desktop` - Desktop entry (user-local)
+- `desktop/linux/flynas.sh` - Launcher script
+- `assets/icons/app.png` - Application icon (256x256)
+- `assets/icons/tray.png` - System tray icon (64x64)
+
+**Install Desktop Entry:**
+```bash
+# System-wide (requires sudo)
+sudo cp desktop/linux/flynas.desktop /usr/share/applications/
+sudo update-desktop-database /usr/share/applications/
+
+# User-local
+cp desktop/linux/flynas.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/
+```
+
+**Launch Methods:**
+```bash
+# From terminal
+gtk-launch flynas
+
+# From application menu
+Press Super key → Search "Flynas" → Click icon
+
+# Direct script execution
+cd desktop/linux && ./flynas.sh
+```
 
 ## Keyboard Shortcuts
 

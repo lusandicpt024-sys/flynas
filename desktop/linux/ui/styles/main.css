@@ -44,11 +44,22 @@ body {
 .app-icon {
     width: 16px;
     height: 16px;
+    object-fit: contain;
+}
+
+.app-icon[src*="app.png"] {
+    /* Hide broken image icon */
+    display: none;
 }
 
 .app-title {
     font-size: 12px;
     font-weight: 500;
+}
+
+.app-title::before {
+    content: '☁️ ';
+    font-size: 14px;
 }
 
 .title-bar-right {
@@ -177,8 +188,12 @@ body {
 
 .nav-link i {
     margin-right: 12px;
-    width: 16px;
+    width: 20px;
     text-align: center;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Storage Info */
@@ -591,18 +606,31 @@ input[type="text"]:focus {
 }
 
 /* Icon Font (simplified) */
+[class^="icon-"]::before,
+[class*=" icon-"]::before {
+    font-style: normal;
+    font-weight: normal;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    display: inline-block;
+    font-size: 16px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
 .icon-user::before { content: '👤'; }
 .icon-folder::before { content: '📁'; }
 .icon-share::before { content: '🔗'; }
 .icon-device::before { content: '💻'; }
 .icon-settings::before { content: '⚙️'; }
-.icon-arrow-left::before { content: '←'; }
-.icon-arrow-right::before { content: '→'; }
-.icon-arrow-up::before { content: '↑'; }
+.icon-arrow-left::before { content: '←'; font-size: 18px; }
+.icon-arrow-right::before { content: '→'; font-size: 18px; }
+.icon-arrow-up::before { content: '↑'; font-size: 18px; }
 .icon-upload::before { content: '📤'; }
-.icon-folder-plus::before { content: '📁+'; }
-.icon-grid::before { content: '⊞'; }
-.icon-upload-cloud::before { content: '☁️'; }
+.icon-folder-plus::before { content: '📁➕'; }
+.icon-grid::before { content: '⊞'; font-size: 18px; }
+.icon-upload-cloud::before { content: '☁️📤'; }
 
 /* Responsive Design */
 @media (max-width: 768px) {

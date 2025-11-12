@@ -96,8 +96,9 @@ Complete documentation for the Flynas personal cloud platform. Find guides, API 
 
 | Platform | Requirements |
 |----------|-------------|
-| **Desktop** | Node.js 16+, npm 7+ |
-| **Android** | Java 17, Android SDK 34, Gradle 8.3+ |
+| **Desktop** | Node.js 14+ (v14.21.3 tested), npm 6+, Electron 28 |
+| **Android** | Java 17, Android SDK 34, Gradle 7.2+ |
+| **Shared Modules** | TypeScript 4.9+, Node.js 14+ |
 | **Browser** | No build required (load unpacked) |
 
 ### Quick Build Commands

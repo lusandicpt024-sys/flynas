@@ -104,10 +104,11 @@ export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64  # or your Java 17 path
 3. Select `browser-extension/firefox/manifest.json`
 
 ### Build Status
-✅ Desktop (Electron) - Ready  
+✅ Desktop (Electron) - Built and running (Node.js v14+)  
 ✅ Android (APK) - Built successfully (8.2MB)  
 ✅ Chrome Extension - Ready to load  
-✅ Firefox Extension - Ready to load
+✅ Firefox Extension - Ready to load  
+✅ Desktop Entry - Installed system-wide
 
 ## 📱 Platform Features
 
@@ -158,7 +159,7 @@ Comprehensive documentation is available for all platforms:
 - **[Android App](android/README.md)** - Native Android mobile application  
 - **[Browser Extensions](browser-extension/README.md)** - Chrome and Firefox extensions
 
-**Total Documentation**: 1,979 lines across 7 comprehensive guides
+**Total Documentation**: 2,301 lines across 7 comprehensive guides
 
 ## 🤝 Contributing
 

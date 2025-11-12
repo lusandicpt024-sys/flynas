@@ -33,8 +33,8 @@ We are committed to providing a welcoming and inclusive environment for all cont
 
 ### Prerequisites
 1. Install required tools for your platform:
-   - **Desktop/Browser**: Node.js 16+, npm 7+
-   - **Android**: Java 17, Android SDK 34, Gradle 8.3+
+   - **Desktop/Browser**: Node.js 14+ (v14.21.3+ tested), npm 6+
+   - **Android**: Java 17, Android SDK 34, Gradle 7.2+
    
 2. Fork the repository on GitHub
 
@@ -46,16 +46,23 @@ We are committed to providing a welcoming and inclusive environment for all cont
 
 4. Add upstream remote:
    ```bash
-   git remote add upstream https://github.com/ORIGINAL_OWNER/flynas.git
+   git remote add upstream https://github.com/lusandicpt024-sys/flynas.git
    ```
 
 ### Setting Up Development Environment
+
+#### Shared Modules (Required First)
+```bash
+cd shared
+npm install
+npm run build
+```
 
 #### Desktop Applications
 ```bash
 cd desktop/linux  # or desktop/windows
 npm install
-npm run dev
+npm start  # or npm run dev for development mode
 ```
 
 #### Browser Extensions

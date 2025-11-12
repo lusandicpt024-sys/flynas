@@ -1,9 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, Tray, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
-const { FileSystemAdapter } = require('../../shared/fileManager/fileManager.js');
-const { AuthManager } = require('../../shared/auth/authManager.js');
-const { EncryptionManager } = require('../../shared/encryption/encryptionManager.js');
+const { FileSystemAdapter } = require('../../shared/dist/fileManager/fileManager.js');
+const { AuthManager } = require('../../shared/dist/auth/authManager.js');
+const { EncryptionManager } = require('../../shared/dist/encryption/encryptionManager.js');
 
 // Enable live reload for development
 if (process.env.NODE_ENV === 'development') {
