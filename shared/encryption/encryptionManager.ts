@@ -82,7 +82,7 @@ export class EncryptionManager {
     return await crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt: salt,
+        salt: salt as BufferSource,
         iterations: 100000,
         hash: 'SHA-256',
       },
@@ -105,7 +105,7 @@ export class EncryptionManager {
         iv: iv,
       },
       key,
-      data
+      data as BufferSource
     );
 
     const result: EncryptedData = {
@@ -141,10 +141,10 @@ export class EncryptionManager {
     const decryptedData = await crypto.subtle.decrypt(
       {
         name: this.config.algorithm,
-        iv: encryptedData.iv,
+        iv: encryptedData.iv as BufferSource,
       },
       key,
-      dataToDecrypt
+      dataToDecrypt as BufferSource
     );
 
     return new Uint8Array(decryptedData);
@@ -159,7 +159,7 @@ export class EncryptionManager {
         name: 'RSA-OAEP',
       },
       publicKey,
-      data
+      data as BufferSource
     );
 
     return new Uint8Array(encryptedData);
@@ -174,7 +174,7 @@ export class EncryptionManager {
         name: 'RSA-OAEP',
       },
       privateKey,
-      encryptedData
+      encryptedData as BufferSource
     );
 
     return new Uint8Array(decryptedData);
@@ -191,7 +191,7 @@ export class EncryptionManager {
    * Calculate hash of data
    */
   async calculateHash(data: Uint8Array, algorithm: 'SHA-256' | 'SHA-512' = 'SHA-256'): Promise<Uint8Array> {
-    const hashBuffer = await crypto.subtle.digest(algorithm, data);
+    const hashBuffer = await crypto.subtle.digest(algorithm, data as BufferSource);
     return new Uint8Array(hashBuffer);
   }
 
@@ -209,7 +209,7 @@ export class EncryptionManager {
   async importKey(keyData: Uint8Array): Promise<CryptoKey> {
     return await crypto.subtle.importKey(
       'raw',
-      keyData,
+      keyData as BufferSource,
       { name: this.config.algorithm },
       true,
       ['encrypt', 'decrypt']
@@ -230,7 +230,7 @@ export class EncryptionManager {
   async importPublicKey(keyData: Uint8Array): Promise<CryptoKey> {
     return await crypto.subtle.importKey(
       'spki',
-      keyData,
+      keyData as BufferSource,
       {
         name: 'RSA-OAEP',
         hash: 'SHA-256',
@@ -254,7 +254,7 @@ export class EncryptionManager {
   async importPrivateKey(keyData: Uint8Array): Promise<CryptoKey> {
     return await crypto.subtle.importKey(
       'pkcs8',
-      keyData,
+      keyData as BufferSource,
       {
         name: 'RSA-OAEP',
         hash: 'SHA-256',
@@ -271,7 +271,7 @@ export class EncryptionManager {
     const signature = await crypto.subtle.sign(
       'RSA-PSS',
       privateKey,
-      data
+      data as BufferSource
     );
 
     return new Uint8Array(signature);
@@ -284,8 +284,8 @@ export class EncryptionManager {
     return await crypto.subtle.verify(
       'RSA-PSS',
       publicKey,
-      signature,
-      data
+      signature as BufferSource,
+      data as BufferSource
     );
   }
 

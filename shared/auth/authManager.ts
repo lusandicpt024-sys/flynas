@@ -92,7 +92,11 @@ export class AuthManager {
       throw new Error('Token exchange failed');
     }
 
-    const tokenData = await response.json();
+    const tokenData = await response.json() as {
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+    };
     const token: AuthToken = {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
@@ -133,7 +137,11 @@ export class AuthManager {
         throw new Error('Token refresh failed');
       }
 
-      const tokenData = await response.json();
+      const tokenData = await response.json() as {
+        access_token: string;
+        refresh_token?: string;
+        expires_in: number;
+      };
       const newToken: AuthToken = {
         accessToken: tokenData.access_token,
         refreshToken: tokenData.refresh_token || this.currentToken.refreshToken,
@@ -205,7 +213,12 @@ export class AuthManager {
       throw new Error('Failed to fetch user profile');
     }
 
-    const userData = await response.json();
+    const userData = await response.json() as {
+      id: string;
+      username: string;
+      email: string;
+      created_at: string;
+    };
     
     const defaultPermissions: UserPermissions = {
       canView: true,

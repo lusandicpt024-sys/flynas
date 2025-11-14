@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Flynas</string>
+    <string name="title_activity_main">Flynas - Personal Cloud Server</string>
+    <string name="version">Version 1.0.0</string>
+    <string name="app_subtitle">Personal Cloud Server</string>
+    <string name="app_status_running">App is running successfully!</string>
+    <string name="app_version_format">Version %1$s</string>
+    <string name="get_started">Get Started</string>
+    <string name="settings">Settings</string>
+</resources>
