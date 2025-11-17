@@ -54,7 +54,17 @@
             android:name="com.flynas.android.ui.main.MainActivity"
             android:exported="false" />
 
+        <!-- Setup/Onboarding Activity -->
+        <activity
+            android:name="com.flynas.android.ui.setup.SetupActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
 
+        <!-- File Browser Activity -->
+        <activity
+            android:name="com.flynas.android.ui.files.FileBrowserActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
 
     </application>
 

@@ -1,5 +1,6 @@
 package com.flynas.android.ui.main
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -28,14 +29,26 @@ class MainActivity : AppCompatActivity() {
             "1.0.0"
         }
         binding.versionText.text = getString(R.string.app_version_format, versionName)
-        binding.statusText.text = getString(R.string.app_status_running)
+        
+        // Check if setup is complete
+        val setupComplete = getSharedPreferences("flynas_prefs", MODE_PRIVATE)
+            .getBoolean("setup_complete", false)
+        
+        if (setupComplete) {
+            binding.statusText.text = "Ready to use!"
+            binding.actionPrimary.text = "Open Files"
+        } else {
+            binding.statusText.text = getString(R.string.app_status_running)
+        }
 
-        // Primary action: Update status with timestamp
+        // Primary action: Launch setup or file browser depending on setup status
         binding.actionPrimary.setOnClickListener {
-            clickCount++
-            val timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-            binding.statusText.text = "Active • Refreshed at $timestamp (${clickCount}x)"
-            Toast.makeText(this, "Status refreshed!", Toast.LENGTH_SHORT).show()
+            val intent = if (setupComplete) {
+                Intent(this, com.flynas.android.ui.files.FileBrowserActivity::class.java)
+            } else {
+                Intent(this, com.flynas.android.ui.setup.SetupActivity::class.java)
+            }
+            startActivity(intent)
         }
 
         // Secondary action: Show settings/info dialog
