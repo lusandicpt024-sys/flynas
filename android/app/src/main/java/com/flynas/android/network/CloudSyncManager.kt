@@ -26,9 +26,15 @@ class CloudSyncManager(private val context: Context) {
     private val prefs = context.getSharedPreferences("flynas_auth", Context.MODE_PRIVATE)
     
     companion object {
-        private const val BASE_URL = "http://10.0.2.2:3000" // Android emulator localhost
-        // For physical devices, use: "http://YOUR_COMPUTER_IP:3000"
+        // Default to emulator localhost - change to your computer's IP for physical devices
+        // Examples: 
+        // - Emulator: "http://10.0.2.2:3000"
+        // - Physical device: "http://192.168.1.100:3000" or "http://10.0.0.2:3000"
+        private const val BASE_URL = "http://10.0.2.2:3000"
         private const val API_BASE = "$BASE_URL/api"
+        
+        // To test on physical device, change BASE_URL above to your computer's local IP
+        // Find your IP: Linux/Mac: `ip addr` or `ifconfig`, Windows: `ipconfig`
     }
     
     data class AuthResult(
