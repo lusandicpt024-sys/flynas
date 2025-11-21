@@ -1,29 +1,68 @@
-# Flynas Quick Start Guide
+# Flynas - Cross-Platform File Management Quick Start
 
-Get up and running with Flynas in minutes! This guide covers installation and basic usage for all platforms.
+## 🚀 Quick Start (3 Steps)
 
-## Prerequisites
+### 1. Start Backend Server
+```bash
+cd api
+npm install  # First time only
+npm run dev
+# Server runs on http://localhost:3000
+```
 
-- **Node.js**: Version 16 or higher for desktop apps
-- **Java**: JDK 17 for Android development
-- **Android SDK**: API 34 for Android builds
-- **Git**: To clone the repository
+### 2. Test Linux Sync (CLI)
+```bash
+cd desktop/linux
+npm install  # First time only
+
+# Register & Login
+node test-sync.js register myuser my@email.com mypassword
+node test-sync.js login myuser mypassword
+
+# Upload a file
+echo "Hello from Linux!" > test.txt
+node test-sync.js upload ./test.txt false
+
+# List files
+node test-sync.js list
+
+# Download
+node test-sync.js download <FILE_ID> ./downloaded.txt
+```
+
+### 3. Android App (Optional)
+```bash
+cd android
+./gradlew assembleDebug
+# Install APK and login with same credentials
+```
 
 ---
 
-## Initial Setup
+## 🎯 What's Implemented
 
-First, navigate to your Flynas project:
+✅ **Backend API Server** (Node.js + Express + SQLite)  
+✅ **User Authentication** (JWT with bcrypt)  
+✅ **File Upload/Download** (Multipart with metadata)  
+✅ **Cross-Platform Sync** (Android ↔ Linux ↔ Cloud)  
+✅ **Linux Network Client** (axios + CloudSyncService)  
+✅ **Android Network Client** (OkHttp + CloudSyncManager)  
+✅ **CLI Testing Tool** (test-sync.js)  
+
+---
+
+## 📋 Detailed Setup
+
+### Prerequisites
+
+- **Node.js**: Version 18 or higher
+- **Java**: JDK 17 for Android (optional)
+- **Android SDK**: API 34 for Android builds (optional)
+
+### Initial Setup
 
 ```bash
 cd ~/Work/WebDev/flynas
-```
-
-Or clone if you haven't already:
-
-```bash
-git clone https://github.com/yourusername/flynas.git
-cd flynas
 ```
 
 ---

@@ -1,17 +1,31 @@
 package com.flynas.android.ui.files
 
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.GravityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.flynas.android.R
+import com.flynas.android.data.FileStorageManager
 import com.flynas.android.databinding.ActivityFileBrowserBinding
 import com.google.android.material.navigation.NavigationView
+import java.io.File
 
 /**
  * Main file browser and management interface
@@ -21,17 +35,128 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     
     private lateinit var binding: ActivityFileBrowserBinding
     private lateinit var fileAdapter: FileListAdapter
+    private lateinit var storageManager: FileStorageManager
     private val fileList = mutableListOf<FileItem>()
+    
+    private val filePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                handleFileImport(uri)
+            }
+        }
+    }
+    
+    private val cameraLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            Toast.makeText(this, "Photo captured!", Toast.LENGTH_SHORT).show()
+            refreshFileList()
+        }
+    }
+    
+    companion object {
+        private const val PERMISSION_REQUEST_CODE = 100
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityFileBrowserBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        storageManager = FileStorageManager(this)
+        
         setupToolbar()
         setupDrawer()
         setupRecyclerView()
-        loadSampleFiles()
+        checkAndRequestPermissions()
+    }
+    
+    private fun checkAndRequestPermissions() {
+        val permissionsNeeded = mutableListOf<String>()
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) 
+                != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES)
+                permissionsNeeded.add(Manifest.permission.READ_MEDIA_VIDEO)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+        
+        if (permissionsNeeded.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsNeeded.toTypedArray(),
+                PERMISSION_REQUEST_CODE
+            )
+        } else {
+            refreshFileList()
+        }
+    }
+    
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            refreshFileList()
+        }
+    }
+    
+    private fun refreshFileList() {
+        fileList.clear()
+        
+        val files = storageManager.getAllFiles()
+        for (file in files) {
+            val metadata = storageManager.loadFileMetadata(file)
+            val fileItem = FileItem(
+                name = file.name,
+                type = storageManager.getFileType(file),
+                size = storageManager.getFileSize(file),
+                timestamp = file.lastModified(),
+                isEncrypted = storageManager.isFileEncrypted(file),
+                isSynced = metadata["synced"] == "true"
+            )
+            fileList.add(fileItem)
+        }
+        
+        fileAdapter.notifyDataSetChanged()
+        updateEmptyState()
+    }
+    
+    private fun updateEmptyState() {
+        binding.emptyView.visibility = if (fileList.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+    }
+    
+    private fun handleFileImport(uri: Uri) {
+        try {
+            val fileName = getFileNameFromUri(uri)
+            storageManager.importFile(uri, fileName)
+            Toast.makeText(this, "File imported: $fileName", Toast.LENGTH_SHORT).show()
+            refreshFileList()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun getFileNameFromUri(uri: Uri): String {
+        var fileName = "imported_file"
+        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst() && nameIndex >= 0) {
+                fileName = cursor.getString(nameIndex)
+            }
+        }
+        return fileName
     }
 
     private fun setupToolbar() {
@@ -65,19 +190,7 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
         }
     }
 
-    private fun loadSampleFiles() {
-        fileList.clear()
-        fileList.addAll(listOf(
-            FileItem("Documents", "folder", "5 items", System.currentTimeMillis(), true),
-            FileItem("Photos", "folder", "12 items", System.currentTimeMillis(), true),
-            FileItem("project_report.pdf", "pdf", "2.4 MB", System.currentTimeMillis() - 86400000, true),
-            FileItem("vacation_photo.jpg", "image", "1.8 MB", System.currentTimeMillis() - 172800000, false),
-            FileItem("notes.txt", "text", "12 KB", System.currentTimeMillis() - 259200000, true)
-        ))
-        fileAdapter.notifyDataSetChanged()
-        
-        binding.emptyView.visibility = if (fileList.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
-    }
+
 
     private fun showFileOptions(file: FileItem) {
         val options = arrayOf(
@@ -100,6 +213,10 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
                 }
             }
             .show()
+    }
+    
+    private fun findFileByName(fileName: String): File? {
+        return storageManager.getAllFiles().find { it.name == fileName }
     }
 
     private fun showUploadOptions() {
@@ -124,22 +241,84 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     }
 
     private fun openFile(file: FileItem) {
-        Toast.makeText(this, "Opening ${file.name}...", Toast.LENGTH_SHORT).show()
+        findFileByName(file.name)?.let { actualFile ->
+            try {
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "${packageName}.fileprovider",
+                    actualFile
+                )
+                val mimeType = getMimeType(file.type)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, mimeType)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(intent, "Open with"))
+            } catch (e: Exception) {
+                Toast.makeText(this, "No app found to open this file", Toast.LENGTH_SHORT).show()
+            }
+        } ?: Toast.makeText(this, "File not found", Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun getMimeType(fileType: String): String {
+        return when (fileType) {
+            "pdf" -> "application/pdf"
+            "image" -> "image/*"
+            "video" -> "video/*"
+            "audio" -> "audio/*"
+            "text" -> "text/plain"
+            else -> "*/*"
+        }
     }
 
     private fun toggleEncryption(file: FileItem) {
-        val action = if (file.isEncrypted) "Decrypting" else "Encrypting"
-        Toast.makeText(this, "$action ${file.name}...", Toast.LENGTH_SHORT).show()
-        file.isEncrypted = !file.isEncrypted
-        fileAdapter.notifyDataSetChanged()
+        findFileByName(file.name)?.let { actualFile ->
+            try {
+                if (file.isEncrypted) {
+                    storageManager.decryptFile(actualFile, "default_password")
+                    Toast.makeText(this, "Decrypted ${file.name}", Toast.LENGTH_SHORT).show()
+                } else {
+                    storageManager.encryptFile(actualFile, "default_password")
+                    Toast.makeText(this, "Encrypted ${file.name}", Toast.LENGTH_SHORT).show()
+                }
+                refreshFileList()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Encryption failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun shareFile(file: FileItem) {
-        Toast.makeText(this, "Sharing ${file.name}...", Toast.LENGTH_SHORT).show()
+        findFileByName(file.name)?.let { actualFile ->
+            try {
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "${packageName}.fileprovider",
+                    actualFile
+                )
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = getMimeType(file.type)
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(intent, "Share via"))
+            } catch (e: Exception) {
+                Toast.makeText(this, "Share failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun syncFile(file: FileItem) {
+        // TODO: Implement cloud sync functionality
         Toast.makeText(this, "Syncing ${file.name} to cloud...", Toast.LENGTH_SHORT).show()
+        
+        // Simulate sync completion
+        findFileByName(file.name)?.let { actualFile ->
+            val metadata = storageManager.loadFileMetadata(actualFile).toMutableMap()
+            metadata["synced"] = "true"
+            storageManager.saveFileMetadata(actualFile, metadata)
+            refreshFileList()
+        }
     }
 
     private fun deleteFile(file: FileItem) {
@@ -147,28 +326,84 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
             .setTitle("Delete File")
             .setMessage("Are you sure you want to delete ${file.name}?")
             .setPositiveButton("Delete") { _, _ ->
-                fileList.remove(file)
-                fileAdapter.notifyDataSetChanged()
-                Toast.makeText(this, "${file.name} deleted", Toast.LENGTH_SHORT).show()
+                findFileByName(file.name)?.let { actualFile ->
+                    try {
+                        storageManager.deleteFile(actualFile)
+                        Toast.makeText(this, "${file.name} deleted", Toast.LENGTH_SHORT).show()
+                        refreshFileList()
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Delete failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun browseFiles() {
-        Toast.makeText(this, "Opening file picker...", Toast.LENGTH_SHORT).show()
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        filePickerLauncher.launch(intent)
     }
 
     private fun takePhoto() {
-        Toast.makeText(this, "Opening camera...", Toast.LENGTH_SHORT).show()
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        cameraLauncher.launch(intent)
     }
 
     private fun createTextFile() {
-        Toast.makeText(this, "Creating new text file...", Toast.LENGTH_SHORT).show()
+        val input = EditText(this)
+        input.hint = "Enter filename"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Create Text File")
+            .setView(input)
+            .setPositiveButton("Create") { _, _ ->
+                val filename = input.text.toString().trim()
+                if (filename.isNotEmpty()) {
+                    try {
+                        val file = File(storageManager.getAllFiles().first().parent, 
+                            if (filename.endsWith(".txt")) filename else "$filename.txt")
+                        file.writeText("") // Create empty file
+                        Toast.makeText(this, "Created $filename", Toast.LENGTH_SHORT).show()
+                        refreshFileList()
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Failed to create file", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun createFolder() {
-        Toast.makeText(this, "Creating new folder...", Toast.LENGTH_SHORT).show()
+        val input = EditText(this)
+        input.hint = "Enter folder name"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Create Folder")
+            .setView(input)
+            .setPositiveButton("Create") { _, _ ->
+                val foldername = input.text.toString().trim()
+                if (foldername.isNotEmpty()) {
+                    try {
+                        val folder = File(storageManager.getAllFiles().firstOrNull()?.parent 
+                            ?: filesDir.absolutePath + "/flynas_files", foldername)
+                        if (folder.mkdirs()) {
+                            Toast.makeText(this, "Created folder $foldername", Toast.LENGTH_SHORT).show()
+                            refreshFileList()
+                        } else {
+                            Toast.makeText(this, "Folder already exists", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Failed to create folder", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {

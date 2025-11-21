@@ -1,0 +1,7 @@
+This is a test file created for cross-platform sync verification.
+
+Uploaded from: Linux Desktop
+Timestamp: 2024
+Test ID: FLYNAS-SYNC-TEST-001
+
+This file should be visible on both Android and Linux devices after sync.
