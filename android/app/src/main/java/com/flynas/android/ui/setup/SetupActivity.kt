@@ -3,6 +3,7 @@ package com.flynas.android.ui.setup
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager2.widget.ViewPager2
 import com.flynas.android.R
@@ -26,6 +27,7 @@ class SetupActivity : AppCompatActivity() {
 
         setupViewPager()
         setupButtons()
+        setupBackPressHandler()
     }
 
     private fun setupViewPager() {
@@ -91,11 +93,15 @@ class SetupActivity : AppCompatActivity() {
         finish()
     }
 
-    override fun onBackPressed() {
-        if (currentPage > 0) {
-            binding.viewPager.currentItem = currentPage - 1
-        } else {
-            super.onBackPressed()
-        }
+    private fun setupBackPressHandler() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (currentPage > 0) {
+                    binding.viewPager.currentItem = currentPage - 1
+                } else {
+                    finish()
+                }
+            }
+        })
     }
 }
