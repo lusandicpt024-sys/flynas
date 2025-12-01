@@ -5,6 +5,7 @@ import android.net.Uri
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import com.flynas.android.crypto.EncryptionUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,6 +31,16 @@ class FileStorageManager(private val context: Context) {
         File(flynasDir, "metadata").apply {
             if (!exists()) mkdirs()
         }
+    }
+    
+    /**
+     * Initialize directory structure - call on app start
+     */
+    fun initializeDirectories() {
+        // Force initialization of lazy properties
+        flynasDir.mkdirs()
+        encryptedDir.mkdirs()
+        metadataDir.mkdirs()
     }
     
     /**
@@ -74,52 +85,37 @@ class FileStorageManager(private val context: Context) {
     }
     
     /**
-     * Encrypt a file (placeholder - to be integrated with crypto module)
+     * Encrypt a file using AES-256 GCM, deriving key from password.
      */
-    fun encryptFile(file: File, @Suppress("UNUSED_PARAMETER") password: String): File? {
+    fun encryptFile(file: File, password: String): File? {
         return try {
             val encryptedFile = File(encryptedDir, "${file.name}.enc")
-            
-            // For now, just copy the file
-            // TODO: Integrate with shared encryption module
-            FileInputStream(file).use { input ->
-                FileOutputStream(encryptedFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-            
-            // Save metadata
-            saveFileMetadata(encryptedFile, mapOf(
-                "originalName" to file.name,
-                "encrypted" to "true",
-                "timestamp" to System.currentTimeMillis().toString()
-            ))
-            
-            encryptedFile
+            if (EncryptionUtils.encryptFile(file, encryptedFile, password)) {
+                saveFileMetadata(encryptedFile, mapOf(
+                    "originalName" to file.name,
+                    "encrypted" to "true",
+                    "algorithm" to "AES_GCM",
+                    "timestamp" to System.currentTimeMillis().toString()
+                ))
+                encryptedFile
+            } else null
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
-    
+
     /**
-     * Decrypt a file (placeholder)
+     * Decrypt an AES-256 GCM encrypted file. Returns decrypted file or null.
      */
-    fun decryptFile(encryptedFile: File, @Suppress("UNUSED_PARAMETER") password: String): File? {
+    fun decryptFile(encryptedFile: File, password: String): File? {
         return try {
             val metadata = loadFileMetadata(encryptedFile)
-            val originalName = metadata["originalName"] ?: "decrypted_${encryptedFile.name}"
+            val originalName = metadata["originalName"] ?: encryptedFile.name.removeSuffix(".enc")
             val decryptedFile = File(flynasDir, originalName)
-            
-            // For now, just copy the file
-            // TODO: Integrate with shared encryption module
-            FileInputStream(encryptedFile).use { input ->
-                FileOutputStream(decryptedFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-            
-            decryptedFile
+            if (EncryptionUtils.decryptFile(encryptedFile, decryptedFile, password)) {
+                decryptedFile
+            } else null
         } catch (e: Exception) {
             e.printStackTrace()
             null

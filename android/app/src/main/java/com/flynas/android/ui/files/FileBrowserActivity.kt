@@ -3,6 +3,7 @@ package com.flynas.android.ui.files
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -16,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -26,6 +28,8 @@ import com.flynas.android.data.FileStorageManager
 import com.flynas.android.databinding.ActivityFileBrowserBinding
 import com.google.android.material.navigation.NavigationView
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * Main file browser and management interface
@@ -37,6 +41,18 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     private lateinit var fileAdapter: FileListAdapter
     private lateinit var storageManager: FileStorageManager
     private val fileList = mutableListOf<FileItem>()
+    private val allFilesList = mutableListOf<FileItem>()
+    private var currentPhotoUri: Uri? = null
+    private lateinit var prefs: SharedPreferences
+    private var currentFilter: FileFilter = FileFilter.ALL
+    
+    enum class FileFilter {
+        ALL, ENCRYPTED, RECENT
+    }
+    
+    enum class SortCriteria {
+        NAME, DATE, SIZE, TYPE
+    }
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -52,8 +68,18 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            Toast.makeText(this, "Photo captured!", Toast.LENGTH_SHORT).show()
-            refreshFileList()
+            currentPhotoUri?.let { uri ->
+                try {
+                    // Copy photo from temp location to flynas storage
+                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                    val fileName = "IMG_$timestamp.jpg"
+                    storageManager.importFile(uri, fileName)
+                    Toast.makeText(this, "Photo saved: $fileName", Toast.LENGTH_SHORT).show()
+                    refreshFileList()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Failed to save photo: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
     
@@ -67,6 +93,10 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
         setContentView(binding.root)
 
         storageManager = FileStorageManager(this)
+        prefs = getSharedPreferences("flynas_prefs", MODE_PRIVATE)
+        
+        // Ensure flynas directory is initialized
+        storageManager.initializeDirectories()
         
         setupToolbar()
         setupDrawer()
@@ -113,7 +143,7 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     }
     
     private fun refreshFileList() {
-        fileList.clear()
+        allFilesList.clear()
         
         val files = storageManager.getAllFiles()
         for (file in files) {
@@ -122,13 +152,42 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
                 name = file.name,
                 type = storageManager.getFileType(file),
                 size = storageManager.getFileSize(file),
+                byteSize = file.length(),
                 timestamp = file.lastModified(),
                 isEncrypted = storageManager.isFileEncrypted(file),
                 isSynced = metadata["synced"] == "true"
             )
-            fileList.add(fileItem)
+            allFilesList.add(fileItem)
         }
         
+        applyFilterAndSort()
+    }
+    
+    private fun applyFilterAndSort() {
+        fileList.clear()
+        
+        // Apply filter
+        val filteredList = when (currentFilter) {
+            FileFilter.ENCRYPTED -> allFilesList.filter { it.isEncrypted }
+            FileFilter.RECENT -> {
+                val sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000)
+                allFilesList.filter { it.timestamp >= sevenDaysAgo }
+            }
+            FileFilter.ALL -> allFilesList
+        }
+        
+        // Apply sort
+        val sortCriteria = SortCriteria.valueOf(prefs.getString("sort_criteria", "NAME") ?: "NAME")
+        val sortAscending = prefs.getBoolean("sort_ascending", true)
+        
+        val sortedList = when (sortCriteria) {
+            SortCriteria.NAME -> filteredList.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            SortCriteria.DATE -> filteredList.sortedBy { it.timestamp }
+            SortCriteria.SIZE -> filteredList.sortedBy { it.byteSize }
+            SortCriteria.TYPE -> filteredList.sortedBy { it.type }
+        }
+        
+        fileList.addAll(if (sortAscending) sortedList else sortedList.reversed())
         fileAdapter.notifyDataSetChanged()
         updateEmptyState()
     }
@@ -349,8 +408,24 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     }
 
     private fun takePhoto() {
-        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        cameraLauncher.launch(intent)
+        try {
+            // Create a temporary file for the photo
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val photoFile = File(cacheDir, "TEMP_$timestamp.jpg")
+            
+            currentPhotoUri = FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                photoFile
+            )
+            
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, currentPhotoUri)
+            }
+            cameraLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to open camera: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun createTextFile() {
@@ -364,18 +439,60 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
                 val filename = input.text.toString().trim()
                 if (filename.isNotEmpty()) {
                     try {
-                        val file = File(storageManager.getAllFiles().first().parent, 
-                            if (filename.endsWith(".txt")) filename else "$filename.txt")
-                        file.writeText("") // Create empty file
-                        Toast.makeText(this, "Created $filename", Toast.LENGTH_SHORT).show()
+                        val finalFilename = if (filename.endsWith(".txt")) filename else "$filename.txt"
+                        val flynasDir = File(filesDir, "flynas_files")
+                        val file = File(flynasDir, finalFilename)
+                        
+                        // Create file with heading content
+                        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                        val createdDate = dateFormat.format(Date())
+                        val content = """$filename
+
+Created: $createdDate
+
+---
+
+"""
+                        file.writeText(content, Charsets.UTF_8)
+                        
+                        Toast.makeText(this, "Created $finalFilename", Toast.LENGTH_SHORT).show()
                         refreshFileList()
+                        
+                        // Optionally open the file in external editor
+                        openFileInEditor(file)
                     } catch (e: Exception) {
-                        Toast.makeText(this, "Failed to create file", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Failed to create file: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+    
+    private fun openFileInEditor(file: File) {
+        // Launch in-app editor for .txt files; fallback to external if not text
+        if (file.extension.lowercase() == "txt") {
+            val intent = Intent(this, com.flynas.android.ui.editor.TextEditorActivity::class.java).apply {
+                putExtra(com.flynas.android.ui.editor.TextEditorActivity.EXTRA_FILE_NAME, file.name)
+                putExtra(com.flynas.android.ui.editor.TextEditorActivity.EXTRA_CREATE_NEW, false)
+            }
+            startActivity(intent)
+        } else {
+            try {
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "${packageName}.fileprovider",
+                    file
+                )
+                val intent = Intent(Intent.ACTION_EDIT).apply {
+                    setDataAndType(uri, "text/plain")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(intent, "Edit with"))
+            } catch (e: Exception) {
+                // silent
+            }
+        }
     }
 
     private fun createFolder() {
@@ -408,13 +525,54 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_file_browser, menu)
+        
+        // Setup search view
+        val searchItem = menu?.findItem(R.id.action_search)
+        val searchView = searchItem?.actionView as? SearchView
+        
+        searchView?.apply {
+            queryHint = "Search files..."
+            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(query: String?): Boolean {
+                    return false
+                }
+                
+                override fun onQueryTextChange(newText: String?): Boolean {
+                    filterFiles(newText ?: "")
+                    return true
+                }
+            })
+            
+            setOnCloseListener {
+                filterFiles("")
+                false
+            }
+        }
+        
         return true
+    }
+    
+    private fun filterFiles(query: String) {
+        fileList.clear()
+        
+        if (query.isEmpty()) {
+            applyFilterAndSort()
+        } else {
+            val filtered = allFilesList.filter {
+                it.name.contains(query, ignoreCase = true) ||
+                it.type.contains(query, ignoreCase = true)
+            }
+            fileList.addAll(filtered)
+            fileAdapter.notifyDataSetChanged()
+        }
+        
+        updateEmptyState()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_search -> {
-                Toast.makeText(this, "Search files...", Toast.LENGTH_SHORT).show()
+                // Search view is handled in onCreateOptionsMenu
                 true
             }
             R.id.action_sort -> {
@@ -430,31 +588,79 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     }
 
     private fun showSortOptions() {
-        val options = arrayOf("Name", "Date", "Size", "Type")
+        val currentCriteria = SortCriteria.valueOf(prefs.getString("sort_criteria", "NAME") ?: "NAME")
+        val currentAscending = prefs.getBoolean("sort_ascending", true)
+        
+        val options = arrayOf(
+            "Name (A-Z)",
+            "Name (Z-A)",
+            "Date (Oldest First)",
+            "Date (Newest First)",
+            "Size (Smallest First)",
+            "Size (Largest First)",
+            "Type (A-Z)",
+            "Type (Z-A)"
+        )
+        
+        val currentSelection = when (currentCriteria) {
+            SortCriteria.NAME -> if (currentAscending) 0 else 1
+            SortCriteria.DATE -> if (currentAscending) 2 else 3
+            SortCriteria.SIZE -> if (currentAscending) 4 else 5
+            SortCriteria.TYPE -> if (currentAscending) 6 else 7
+        }
+        
         AlertDialog.Builder(this)
             .setTitle("Sort by")
-            .setItems(options) { _, which ->
-                Toast.makeText(this, "Sorting by ${options[which]}...", Toast.LENGTH_SHORT).show()
+            .setSingleChoiceItems(options, currentSelection) { dialog, which ->
+                val (criteria, ascending) = when (which) {
+                    0 -> Pair(SortCriteria.NAME, true)
+                    1 -> Pair(SortCriteria.NAME, false)
+                    2 -> Pair(SortCriteria.DATE, true)
+                    3 -> Pair(SortCriteria.DATE, false)
+                    4 -> Pair(SortCriteria.SIZE, true)
+                    5 -> Pair(SortCriteria.SIZE, false)
+                    6 -> Pair(SortCriteria.TYPE, true)
+                    7 -> Pair(SortCriteria.TYPE, false)
+                    else -> Pair(SortCriteria.NAME, true)
+                }
+                
+                prefs.edit()
+                    .putString("sort_criteria", criteria.name)
+                    .putBoolean("sort_ascending", ascending)
+                    .apply()
+                
+                applyFilterAndSort()
+                Toast.makeText(this, "Sorted by ${options[which]}", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
             }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.nav_files -> {
-                // Already on files screen
+                currentFilter = FileFilter.ALL
+                supportActionBar?.title = "My Files"
+                applyFilterAndSort()
             }
             R.id.nav_sync -> {
-                Toast.makeText(this, "Sync settings", Toast.LENGTH_SHORT).show()
+                showSyncStatus()
             }
             R.id.nav_encrypted -> {
+                currentFilter = FileFilter.ENCRYPTED
+                supportActionBar?.title = "Encrypted Files"
+                applyFilterAndSort()
                 Toast.makeText(this, "Showing encrypted files only", Toast.LENGTH_SHORT).show()
             }
             R.id.nav_recent -> {
-                Toast.makeText(this, "Recent files", Toast.LENGTH_SHORT).show()
+                currentFilter = FileFilter.RECENT
+                supportActionBar?.title = "Recent Files"
+                applyFilterAndSort()
+                Toast.makeText(this, "Showing files from last 7 days", Toast.LENGTH_SHORT).show()
             }
             R.id.nav_settings -> {
-                Toast.makeText(this, "Settings", Toast.LENGTH_SHORT).show()
+                showSettings()
             }
             R.id.nav_about -> {
                 showAbout()
@@ -462,6 +668,56 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
         }
         binding.drawerLayout.closeDrawer(GravityCompat.START)
         return true
+    }
+    
+    private fun showSyncStatus() {
+        val syncedFiles = allFilesList.filter { it.isSynced }
+        val unsyncedFiles = allFilesList.filter { !it.isSynced }
+        
+        val message = """Sync Status:
+            |
+            |✓ Synced: ${syncedFiles.size} files
+            |⏳ Not synced: ${unsyncedFiles.size} files
+            |
+            |Total: ${allFilesList.size} files
+        """.trimMargin()
+        
+        AlertDialog.Builder(this)
+            .setTitle("Sync Status")
+            .setMessage(message)
+            .setPositiveButton("Sync All") { _, _ ->
+                Toast.makeText(this, "Syncing all files to cloud...", Toast.LENGTH_SHORT).show()
+                // TODO: Implement actual sync functionality
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+    
+    private fun showSettings() {
+        val options = arrayOf(
+            "Storage Location: Internal",
+            "Auto-Sync: Enabled",
+            "Encryption: AES-256",
+            "Sync Interval: 15 minutes",
+            "Clear Cache"
+        )
+        
+        AlertDialog.Builder(this)
+            .setTitle("Settings")
+            .setItems(options) { _, which ->
+                when (which) {
+                    4 -> {
+                        // Clear cache
+                        cacheDir.deleteRecursively()
+                        Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show()
+                    }
+                    else -> {
+                        Toast.makeText(this, "Setting: ${options[which]}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun showAbout() {

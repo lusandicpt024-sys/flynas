@@ -84,6 +84,12 @@
             android:exported="false"
             android:theme="@style/AppTheme" />
         
+        <!-- In-app text editor -->
+        <activity
+            android:name="com.flynas.android.ui.editor.TextEditorActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+        
         <!-- FileProvider for sharing files -->
         <provider
             android:name="androidx.core.content.FileProvider"

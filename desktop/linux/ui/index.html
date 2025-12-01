@@ -84,6 +84,20 @@
                         </div>
                     </div>
                     <div class="toolbar-right">
+                        <div class="sort-group">
+                            <select id="sort-criteria">
+                                <option value="name">Name</option>
+                                <option value="size">Size</option>
+                                <option value="date">Date</option>
+                                <option value="type">Type</option>
+                            </select>
+                            <button id="sort-direction-btn" class="btn-icon" title="Toggle sort direction">
+                                <span id="sort-direction-indicator">⬇️</span>
+                            </button>
+                        </div>
+                        <div class="search-group">
+                            <input id="search-input" type="text" placeholder="Search files..." />
+                        </div>
                         <button id="upload-btn" class="btn-primary">
                             <i class="icon-upload"></i> Upload
                         </button>
@@ -197,6 +211,28 @@
             </div>
             <div class="modal-footer">
                 <button id="cancel-progress-btn" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Text Editor Modal -->
+    <div id="text-editor-modal" class="modal">
+        <div class="modal-content editor-modal">
+            <div class="modal-header">
+                <h3 id="editor-title">Editor</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="editor-toolbar">
+                    <button id="editor-undo-btn" class="btn-secondary">Undo</button>
+                    <button id="editor-redo-btn" class="btn-secondary">Redo</button>
+                    <span id="editor-status" class="muted">Ready</span>
+                </div>
+                <textarea id="editor-text" rows="18" placeholder="Start typing..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="editor-cancel-btn" class="btn-secondary">Close</button>
+                <button id="editor-save-btn" class="btn-primary">Save</button>
             </div>
         </div>
     </div>
