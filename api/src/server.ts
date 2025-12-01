@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import authRoutes from './routes/auth';
 import fileRoutes from './routes/files';
+import encryptionRoutes from './routes/encryption';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -36,6 +37,7 @@ if (!fs.existsSync(dataDir)) {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/encryption', encryptionRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
