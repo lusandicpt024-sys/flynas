@@ -6,6 +6,21 @@ class FlynasApp {
         this.currentUser = null;
         this.selectedFiles = [];
         this.dragCounter = 0;
+        this.allItems = { folders: [], files: [] };
+        this.searchQuery = '';
+        this.sortCriteria = 'name';
+        this.sortAscending = true;
+
+        // Editor state
+        this.editor = {
+            file: null,
+            dirty: false,
+            autosaveDelayMs: 2000,
+            autosaveTimer: null,
+            undoStack: [],
+            redoStack: [],
+            maxHistory: 50
+        };
         
         this.init();
     }
@@ -60,6 +75,21 @@ class FlynasApp {
             this.showNewFolderModal();
         });
 
+        // Search and sort
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            this.searchQuery = e.target.value.toLowerCase();
+            this.applyFilterAndSort();
+        });
+        document.getElementById('sort-criteria').addEventListener('change', (e) => {
+            this.sortCriteria = e.target.value;
+            this.applyFilterAndSort();
+        });
+        document.getElementById('sort-direction-btn').addEventListener('click', () => {
+            this.sortAscending = !this.sortAscending;
+            document.getElementById('sort-direction-indicator').textContent = this.sortAscending ? '⬇️' : '⬆️';
+            this.applyFilterAndSort();
+        });
+
         // New folder modal
         document.getElementById('create-folder-btn').addEventListener('click', () => {
             this.createFolder();
@@ -98,6 +128,24 @@ class FlynasApp {
         document.getElementById('folder-name-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.createFolder();
+            }
+        });
+
+        // Editor modal
+        document.getElementById('editor-cancel-btn').addEventListener('click', () => {
+            this.closeEditor();
+        });
+        document.getElementById('editor-save-btn').addEventListener('click', () => {
+            this.saveEditorFile();
+        });
+        document.getElementById('editor-undo-btn').addEventListener('click', () => {
+            this.editorUndo();
+        });
+        document.getElementById('editor-redo-btn').addEventListener('click', () => {
+            this.editorRedo();
+        });
+        document.getElementById('editor-text').addEventListener('input', (e) => {
+            this.onEditorChange(e.target.value);
             }
         });
     }
@@ -234,13 +282,47 @@ class FlynasApp {
         try {
             const result = await window.electronAPI.fs.listDirectory(this.currentPath);
             if (result.success) {
-                this.displayFiles(result.folders, result.files);
+                this.allItems = { folders: result.folders, files: result.files };
+                this.applyFilterAndSort();
             } else {
                 this.showStatus('Failed to load files: ' + result.error, 'error');
             }
         } catch (error) {
             this.showStatus('Error loading files: ' + error.message, 'error');
         }
+    }
+
+    applyFilterAndSort() {
+        const q = this.searchQuery;
+        const filterFn = (name) => !q || name.toLowerCase().includes(q);
+
+        const folders = this.allItems.folders.filter(f => filterFn(f.folderName));
+        const files = this.allItems.files.filter(f => filterFn(f.fileName));
+
+        const compare = (a, b) => {
+            let va, vb;
+            switch (this.sortCriteria) {
+                case 'size':
+                    va = (a.size || 0); vb = (b.size || 0); break;
+                case 'date':
+                    va = new Date(a.modifiedAt || a.createdAt || 0).getTime();
+                    vb = new Date(b.modifiedAt || b.createdAt || 0).getTime();
+                    break;
+                case 'type':
+                    va = (a.fileType || '').toString(); vb = (b.fileType || '').toString(); break;
+                case 'name':
+                default:
+                    va = (a.fileName || a.folderName || '').toString().toLowerCase();
+                    vb = (b.fileName || b.folderName || '').toString().toLowerCase();
+            }
+            const diff = va < vb ? -1 : va > vb ? 1 : 0;
+            return this.sortAscending ? diff : -diff;
+        };
+
+        folders.sort((a, b) => compare(a, b));
+        files.sort((a, b) => compare(a, b));
+
+        this.displayFiles(folders, files);
     }
 
     displayFiles(folders, files) {
@@ -324,8 +406,12 @@ class FlynasApp {
     }
 
     async openFile(file) {
-        // Implement file opening logic
-        this.showStatus(`Opening ${file.fileName}...`, 'info');
+        const name = file.fileName || '';
+        if (name.toLowerCase().endsWith('.txt')) {
+            await this.openInEditor(file);
+        } else {
+            this.showStatus(`Opening ${file.fileName}...`, 'info');
+        }
     }
 
     updateBreadcrumb() {
@@ -515,6 +601,101 @@ class FlynasApp {
             statusElement.textContent = 'Ready';
             statusElement.className = '';
         }, 5000);
+    }
+
+    // Editor features
+    async openInEditor(file) {
+        this.editor.file = file;
+        this.editor.dirty = false;
+        this.editor.undoStack = [];
+        this.editor.redoStack = [];
+        clearTimeout(this.editor.autosaveTimer);
+
+        document.getElementById('editor-title').textContent = file.fileName || 'Editor';
+
+        try {
+            const res = await window.electronAPI.fs.readFile(file.path);
+            if (res.success) {
+                const text = res.content || '';
+                document.getElementById('editor-text').value = text;
+                this.editor.undoStack.push(text);
+                document.getElementById('editor-status').textContent = 'Loaded';
+            } else {
+                document.getElementById('editor-text').value = '';
+                document.getElementById('editor-status').textContent = 'Failed to load';
+            }
+        } catch (e) {
+            document.getElementById('editor-text').value = '';
+            document.getElementById('editor-status').textContent = 'Error loading file';
+        }
+
+        document.getElementById('text-editor-modal').classList.add('active');
+    }
+
+    closeEditor() {
+        clearTimeout(this.editor.autosaveTimer);
+        this.editor.file = null;
+        this.editor.dirty = false;
+        document.getElementById('text-editor-modal').classList.remove('active');
+    }
+
+    onEditorChange(text) {
+        this.editor.dirty = true;
+        const last = this.editor.undoStack[this.editor.undoStack.length - 1];
+        if (last !== text) {
+            this.editor.undoStack.push(text);
+            if (this.editor.undoStack.length > this.editor.maxHistory) {
+                this.editor.undoStack.shift();
+            }
+            this.editor.redoStack = [];
+        }
+
+        document.getElementById('editor-status').textContent = 'Unsaved changes';
+        clearTimeout(this.editor.autosaveTimer);
+        this.editor.autosaveTimer = setTimeout(() => {
+            this.saveEditorFile(true);
+        }, this.editor.autosaveDelayMs);
+    }
+
+    async saveEditorFile(isAutosave = false) {
+        if (!this.editor.file) return;
+        const text = document.getElementById('editor-text').value;
+        try {
+            const res = await window.electronAPI.fs.writeFile(this.editor.file.path, text);
+            if (res.success) {
+                this.editor.dirty = false;
+                document.getElementById('editor-status').textContent = isAutosave ? 'Autosaved' : 'Saved';
+            } else {
+                document.getElementById('editor-status').textContent = 'Save failed';
+            }
+        } catch (e) {
+            document.getElementById('editor-status').textContent = 'Error saving';
+        }
+    }
+
+    editorUndo() {
+        if (this.editor.undoStack.length > 1) {
+            const current = this.editor.undoStack.pop();
+            this.editor.redoStack.push(current);
+            const prev = this.editor.undoStack[this.editor.undoStack.length - 1];
+            document.getElementById('editor-text').value = prev;
+            this.editor.dirty = true;
+            document.getElementById('editor-status').textContent = 'Undo';
+            clearTimeout(this.editor.autosaveTimer);
+            this.editor.autosaveTimer = setTimeout(() => this.saveEditorFile(true), this.editor.autosaveDelayMs);
+        }
+    }
+
+    editorRedo() {
+        if (this.editor.redoStack.length > 0) {
+            const next = this.editor.redoStack.pop();
+            document.getElementById('editor-text').value = next;
+            this.editor.undoStack.push(next);
+            this.editor.dirty = true;
+            document.getElementById('editor-status').textContent = 'Redo';
+            clearTimeout(this.editor.autosaveTimer);
+            this.editor.autosaveTimer = setTimeout(() => this.saveEditorFile(true), this.editor.autosaveDelayMs);
+        }
     }
 }
 
