@@ -4,10 +4,14 @@ class FlynasSidebar {
     constructor() {
         this.currentPath = '/';
         this.files = [];
+        this.allItems = [];
         this.selectedFile = null;
         this.isAuthenticated = false;
         this.authToken = null;
         this.config = {};
+        this.searchQuery = '';
+        this.sortCriteria = 'name';
+        this.sortAscending = true;
 
         this.init();
     }
@@ -53,6 +57,23 @@ class FlynasSidebar {
         // Navigation
         document.getElementById('new-folder-btn').addEventListener('click', () => {
             this.showNewFolderModal();
+        });
+
+        // Search and Sort
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            this.searchQuery = e.target.value.toLowerCase();
+            this.applyFilterAndSort();
+        });
+
+        document.getElementById('sort-criteria').addEventListener('change', (e) => {
+            this.sortCriteria = e.target.value;
+            this.applyFilterAndSort();
+        });
+
+        document.getElementById('sort-direction-btn').addEventListener('click', () => {
+            this.sortAscending = !this.sortAscending;
+            document.getElementById('sort-direction-btn').textContent = this.sortAscending ? '↑' : '↓';
+            this.applyFilterAndSort();
         });
 
         // Modals
@@ -269,8 +290,8 @@ class FlynasSidebar {
             const response = await this.sendMessage('list-files', { path: this.currentPath });
             
             if (response.success) {
-                this.files = response.data;
-                this.renderFileList();
+                this.allItems = response.data;
+                this.applyFilterAndSort();
             }
         } catch (error) {
             console.error('Failed to load files:', error);
@@ -280,18 +301,57 @@ class FlynasSidebar {
         }
     }
 
+    applyFilterAndSort() {
+        let items = [...this.allItems];
+
+        // Apply search filter
+        if (this.searchQuery) {
+            items = items.filter(item => 
+                item.name.toLowerCase().includes(this.searchQuery)
+            );
+        }
+
+        // Apply sorting
+        items.sort((a, b) => {
+            let compareResult = 0;
+            
+            switch(this.sortCriteria) {
+                case 'name':
+                    compareResult = a.name.localeCompare(b.name);
+                    break;
+                case 'size':
+                    compareResult = (a.size || 0) - (b.size || 0);
+                    break;
+                case 'date':
+                    compareResult = new Date(a.modified || 0) - new Date(b.modified || 0);
+                    break;
+                case 'type':
+                    compareResult = (a.type || '').localeCompare(b.type || '');
+                    break;
+            }
+            
+            return this.sortAscending ? compareResult : -compareResult;
+        });
+
+        this.files = items;
+        this.renderFileList();
+    }
+
     renderFileList() {
         const fileList = document.getElementById('file-list');
         const loading = document.getElementById('loading');
         loading.classList.add('hidden');
 
         if (this.files.length === 0) {
+            const emptyMessage = this.searchQuery 
+                ? `No files found matching "${this.searchQuery}"`
+                : 'This folder is empty';
             fileList.innerHTML = `
                 <div class="empty-state">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" style="color: #6c757d; margin-bottom: 16px;">
                         <path d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"/>
                     </svg>
-                    <p style="color: #6c757d;">This folder is empty</p>
+                    <p style="color: #6c757d;">${emptyMessage}</p>
                 </div>
             `;
             return;

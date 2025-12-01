@@ -235,6 +235,78 @@ body {
     background: var(--light-color);
 }
 
+/* Search and Sort Controls */
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-color);
+}
+
+.search-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--light-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.search-box svg {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.search-box input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 14px;
+    color: var(--text-color);
+}
+
+.sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sort-controls select {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+}
+
+.sort-controls select:hover {
+    border-color: var(--primary-color);
+}
+
+#sort-direction-btn {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 16px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+#sort-direction-btn:hover {
+    background: var(--hover-color);
+    border-color: var(--primary-color);
+}
+
 .breadcrumb {
     display: flex;
     align-items: center;
