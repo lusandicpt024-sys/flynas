@@ -5,7 +5,7 @@ const FormData = require('form-data');
 const { app } = require('electron');
 
 /**
- * Cloud Sync Service for Windows Desktop App
+ * Cloud Sync Service for Linux Desktop App
  * Handles authentication and file synchronization with Flynas backend
  */
 class CloudSyncService {
@@ -13,6 +13,8 @@ class CloudSyncService {
     this.baseURL = process.env.FLYNAS_API_URL || 'http://localhost:3000/api';
     this.token = null;
     this.user = null;
+    this.heartbeatInterval = null;
+    this.heartbeatIntervalMs = 5 * 60 * 1000; // 5 minutes
     this.client = axios.create({
       baseURL: this.baseURL,
       timeout: 30000,
@@ -31,6 +33,11 @@ class CloudSyncService {
 
     // Load saved token
     this.loadToken();
+    
+    // Start heartbeat if authenticated
+    if (this.token) {
+      this.startHeartbeat();
+    }
   }
 
   /**
@@ -103,10 +110,10 @@ class CloudSyncService {
   /**
    * Login user
    */
-  async login(email, password) {
+  async login(username, password) {
     try {
       const response = await this.client.post('/auth/login', {
-        email,
+        username,
         password
       });
 
@@ -127,29 +134,17 @@ class CloudSyncService {
   }
 
   /**
-   * Verify current token
+   * Verify if current token is valid
    */
   async verifyToken() {
-    if (!this.token) {
-      return { success: false, error: 'No token found' };
-    }
+    if (!this.token) return false;
 
     try {
-      const response = await this.client.get('/auth/verify');
-      return {
-        success: true,
-        user: response.data.user
-      };
+      await this.client.get('/auth/verify');
+      return true;
     } catch (error) {
-      // Token is invalid, clear it
-      this.token = null;
-      this.user = null;
-      this.saveToken();
-      
-      return {
-        success: false,
-        error: error.response?.data?.error || error.message
-      };
+      this.logout();
+      return false;
     }
   }
 
@@ -159,9 +154,16 @@ class CloudSyncService {
   logout() {
     this.token = null;
     this.user = null;
-    this.saveToken();
     
-    return { success: true };
+    try {
+      const userDataPath = app.getPath('userData');
+      const authPath = path.join(userDataPath, 'auth.json');
+      if (fs.existsSync(authPath)) {
+        fs.unlinkSync(authPath);
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   }
 
   /**
@@ -179,14 +181,16 @@ class CloudSyncService {
 
       const response = await this.client.post('/files/upload', formData, {
         headers: {
-          ...formData.getHeaders()
-        }
+          ...formData.getHeaders(),
+          'Authorization': `Bearer ${this.token}`
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
       });
 
       return {
         success: true,
-        file: response.data.file,
-        raid: response.data.raid
+        file: response.data.file
       };
     } catch (error) {
       return {
@@ -197,7 +201,7 @@ class CloudSyncService {
   }
 
   /**
-   * List user's files
+   * List all files from cloud
    */
   async listFiles() {
     if (!this.token) {
@@ -665,6 +669,92 @@ class CloudSyncService {
         success: false,
         error: error.response?.data?.error || error.message
       };
+    }
+  }
+
+  /**
+   * Start background heartbeat service
+   * Sends periodic device status updates to server
+   */
+  startHeartbeat() {
+    // Clear existing interval
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+
+    // Send initial heartbeat
+    this.sendHeartbeat();
+
+    // Set up periodic heartbeat
+    this.heartbeatInterval = setInterval(() => {
+      this.sendHeartbeat();
+    }, this.heartbeatIntervalMs);
+
+    console.log(`Heartbeat service started (interval: ${this.heartbeatIntervalMs / 1000}s)`);
+  }
+
+  /**
+   * Stop background heartbeat service
+   */
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      console.log('Heartbeat service stopped');
+    }
+  }
+
+  /**
+   * Send heartbeat to server
+   */
+  async sendHeartbeat() {
+    if (!this.token) {
+      return;
+    }
+
+    try {
+      const os = require('os');
+      
+      const storageInfo = {
+        total: 0,
+        available: 0
+      };
+
+      // Get storage info for main drive
+      try {
+        const diskusage = require('diskusage');
+        const homePath = os.homedir();
+        const info = await diskusage.check(homePath);
+        storageInfo.total = info.total;
+        storageInfo.available = info.available;
+      } catch (e) {
+        // Fallback if diskusage not available
+        console.warn('Could not get storage info:', e.message);
+      }
+
+      const heartbeatData = {
+        deviceId: null, // Will be set by server based on device registration
+        status: 'online',
+        capacity: storageInfo.total,
+        available: storageInfo.available,
+        lastSeen: new Date().toISOString()
+      };
+
+      await this.client.post('/raid/heartbeat', heartbeatData);
+      console.log('Heartbeat sent successfully');
+    } catch (error) {
+      console.error('Failed to send heartbeat:', error.message);
+    }
+  }
+
+  /**
+   * Set heartbeat interval (in milliseconds)
+   */
+  setHeartbeatInterval(intervalMs) {
+    this.heartbeatIntervalMs = intervalMs;
+    if (this.heartbeatInterval) {
+      // Restart with new interval
+      this.startHeartbeat();
     }
   }
 }

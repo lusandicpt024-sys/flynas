@@ -13,6 +13,8 @@ class CloudSyncService {
     this.baseURL = process.env.FLYNAS_API_URL || 'http://localhost:3000/api';
     this.token = null;
     this.user = null;
+    this.heartbeatInterval = null;
+    this.heartbeatIntervalMs = 5 * 60 * 1000; // 5 minutes
     this.client = axios.create({
       baseURL: this.baseURL,
       timeout: 30000,
@@ -31,6 +33,11 @@ class CloudSyncService {
 
     // Load saved token
     this.loadToken();
+    
+    // Start heartbeat if authenticated
+    if (this.token) {
+      this.startHeartbeat();
+    }
   }
 
   /**
@@ -662,6 +669,92 @@ class CloudSyncService {
         success: false,
         error: error.response?.data?.error || error.message
       };
+    }
+  }
+
+  /**
+   * Start background heartbeat service
+   * Sends periodic device status updates to server
+   */
+  startHeartbeat() {
+    // Clear existing interval
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+
+    // Send initial heartbeat
+    this.sendHeartbeat();
+
+    // Set up periodic heartbeat
+    this.heartbeatInterval = setInterval(() => {
+      this.sendHeartbeat();
+    }, this.heartbeatIntervalMs);
+
+    console.log(`Heartbeat service started (interval: ${this.heartbeatIntervalMs / 1000}s)`);
+  }
+
+  /**
+   * Stop background heartbeat service
+   */
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      console.log('Heartbeat service stopped');
+    }
+  }
+
+  /**
+   * Send heartbeat to server
+   */
+  async sendHeartbeat() {
+    if (!this.token) {
+      return;
+    }
+
+    try {
+      const os = require('os');
+      
+      const storageInfo = {
+        total: 0,
+        available: 0
+      };
+
+      // Get storage info for main drive
+      try {
+        const diskusage = require('diskusage');
+        const homePath = os.homedir();
+        const info = await diskusage.check(homePath);
+        storageInfo.total = info.total;
+        storageInfo.available = info.available;
+      } catch (e) {
+        // Fallback if diskusage not available
+        console.warn('Could not get storage info:', e.message);
+      }
+
+      const heartbeatData = {
+        deviceId: null, // Will be set by server based on device registration
+        status: 'online',
+        capacity: storageInfo.total,
+        available: storageInfo.available,
+        lastSeen: new Date().toISOString()
+      };
+
+      await this.client.post('/raid/heartbeat', heartbeatData);
+      console.log('Heartbeat sent successfully');
+    } catch (error) {
+      console.error('Failed to send heartbeat:', error.message);
+    }
+  }
+
+  /**
+   * Set heartbeat interval (in milliseconds)
+   */
+  setHeartbeatInterval(intervalMs) {
+    this.heartbeatIntervalMs = intervalMs;
+    if (this.heartbeatInterval) {
+      // Restart with new interval
+      this.startHeartbeat();
     }
   }
 }

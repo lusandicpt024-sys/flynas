@@ -4,6 +4,9 @@ class FlynasBackground {
     constructor() {
         this.setupEventListeners();
         this.contextMenus = [];
+        this.heartbeatAlarm = 'flynas-heartbeat';
+        this.heartbeatIntervalMinutes = 5;
+        this.setupHeartbeat();
     }
 
     setupEventListeners() {
@@ -450,6 +453,76 @@ class FlynasBackground {
         } catch (error) {
             console.warn('Failed to show notification:', error);
         }
+    }
+
+    // Heartbeat service methods
+    setupHeartbeat() {
+        // Listen for alarm events
+        chrome.alarms.onAlarm.addListener((alarm) => {
+            if (alarm.name === this.heartbeatAlarm) {
+                this.sendHeartbeat();
+            }
+        });
+
+        // Create alarm for periodic heartbeat
+        chrome.alarms.create(this.heartbeatAlarm, {
+            periodInMinutes: this.heartbeatIntervalMinutes
+        });
+
+        // Send initial heartbeat
+        this.sendHeartbeat();
+
+        console.log(`Heartbeat service started (interval: ${this.heartbeatIntervalMinutes} minutes)`);
+    }
+
+    async sendHeartbeat() {
+        try {
+            const authToken = await this.getAuthToken();
+            if (!authToken) {
+                return; // Not authenticated
+            }
+
+            // Get storage quota info
+            let storageInfo = { total: 0, available: 0 };
+            if (navigator.storage && navigator.storage.estimate) {
+                const estimate = await navigator.storage.estimate();
+                storageInfo.total = estimate.quota || 0;
+                storageInfo.available = (estimate.quota || 0) - (estimate.usage || 0);
+            }
+
+            const heartbeatData = {
+                deviceId: null, // Will be set by server based on device registration
+                status: 'online',
+                capacity: storageInfo.total,
+                available: storageInfo.available,
+                lastSeen: new Date().toISOString()
+            };
+
+            const config = await this.getConfig();
+            const apiUrl = config.apiUrl || 'http://localhost:3000';
+
+            const response = await fetch(`${apiUrl}/api/raid/heartbeat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify(heartbeatData)
+            });
+
+            if (response.ok) {
+                console.log('Heartbeat sent successfully');
+            } else {
+                console.warn('Failed to send heartbeat:', response.status);
+            }
+        } catch (error) {
+            console.error('Error sending heartbeat:', error);
+        }
+    }
+
+    stopHeartbeat() {
+        chrome.alarms.clear(this.heartbeatAlarm);
+        console.log('Heartbeat service stopped');
     }
 }
 

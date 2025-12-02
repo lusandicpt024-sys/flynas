@@ -974,4 +974,30 @@ class CloudSyncManager(private val context: Context) {
             }
         }
     }
+
+    /**
+     * Send heartbeat to server
+     */
+    suspend fun sendHeartbeat(heartbeatData: JSONObject): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val token = prefs.getString("auth_token", null) ?: return@withContext false
+
+                val requestBody = heartbeatData.toString()
+                    .toRequestBody("application/json".toMediaType())
+
+                val request = Request.Builder()
+                    .url("$API_BASE/raid/heartbeat")
+                    .post(requestBody)
+                    .addHeader("Authorization", "Bearer $token")
+                    .build()
+
+                val response = client.newCall(request).execute()
+                response.isSuccessful
+            } catch (e: Exception) {
+                android.util.Log.e("CloudSyncManager", "Error sending heartbeat", e)
+                false
+            }
+        }
+    }
 }
