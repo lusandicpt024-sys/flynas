@@ -462,9 +462,15 @@ export class FileManager extends EventEmitter {
     return filePath.substring(0, filePath.lastIndexOf('/'));
   }
 
+  private normalizePath(path: string): string {
+    // Normalize path separators to forward slashes for consistent comparison
+    return path.replace(/\\/g, '/').replace(/\/+/g, '/');
+  }
+
   private findFolderByPath(path: string): Folder | undefined {
+    const normalizedPath = this.normalizePath(path);
     for (const folder of this.indexedFolders.values()) {
-      if (folder.path === path) {
+      if (this.normalizePath(folder.path) === normalizedPath) {
         return folder;
       }
     }
@@ -472,8 +478,9 @@ export class FileManager extends EventEmitter {
   }
 
   private findFileByPath(path: string): File | undefined {
+    const normalizedPath = this.normalizePath(path);
     for (const file of this.indexedFiles.values()) {
-      if (file.path === path) {
+      if (this.normalizePath(file.path) === normalizedPath) {
         return file;
       }
     }
