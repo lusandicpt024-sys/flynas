@@ -86,6 +86,7 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
+        private const val CAMERA_PERMISSION_REQUEST_CODE = 101
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,7 +140,32 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
+        when (requestCode) {
+            PERMISSION_REQUEST_CODE -> {
+                // After storage permissions, request camera permission
+                requestCameraPermission()
+            }
+            CAMERA_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Camera permission granted", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Camera permission denied - photo capture disabled", Toast.LENGTH_SHORT).show()
+                }
+                refreshFileList()
+            }
+        }
+    }
+    
+    private fun requestCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.CAMERA),
+                CAMERA_PERMISSION_REQUEST_CODE
+            )
+        } else {
+            // Camera permission already granted
             refreshFileList()
         }
     }
