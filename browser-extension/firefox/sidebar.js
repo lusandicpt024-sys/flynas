@@ -20,6 +20,7 @@ class FlynasSidebar {
         await this.loadConfig();
         await this.checkAuthStatus();
         this.setupEventListeners();
+        this.setupRaidEventListeners();
         this.setupDropzone();
         
         if (this.isAuthenticated) {
@@ -203,7 +204,7 @@ class FlynasSidebar {
         document.getElementById('main-content').classList.remove('hidden');
     }
 
-    showSettings() {
+    async showSettings() {
         const modal = document.getElementById('settings-modal');
         
         // Populate current settings
@@ -211,6 +212,10 @@ class FlynasSidebar {
         document.getElementById('encryption-enabled').checked = this.config.encryptionEnabled || false;
         document.getElementById('notifications').checked = this.config.notifications || false;
         document.getElementById('api-url').value = this.config.apiUrl || '';
+        
+        // Load RAID data
+        await this.loadRaidStatus();
+        await this.loadDevices();
         
         modal.classList.remove('hidden');
     }
@@ -709,6 +714,238 @@ class FlynasSidebar {
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // ===== RAID Management Methods =====
+
+    setupRaidEventListeners() {
+        document.getElementById('register-device-btn').addEventListener('click', () => {
+            this.registerDevice();
+        });
+        
+        document.getElementById('refresh-devices-btn').addEventListener('click', () => {
+            this.loadDevices();
+        });
+        
+        document.getElementById('configure-raid-btn').addEventListener('click', () => {
+            this.configureRaid();
+        });
+        
+        document.getElementById('delete-raid-btn').addEventListener('click', () => {
+            this.deleteRaidConfig();
+        });
+        
+        document.getElementById('raid-level').addEventListener('change', () => {
+            this.updateRaidConfigUI();
+        });
+        
+        document.getElementById('heal-raid-btn').addEventListener('click', () => {
+            this.healRaid();
+        });
+    }
+
+    async registerDevice() {
+        try {
+            const api = new FlynasAPIService(this.config.apiUrl || 'http://localhost:3000', this.authToken);
+            const result = await api.registerDevice({
+                deviceName: `Browser - ${navigator.userAgent.split('(')[1]?.split(')')[0] || 'Chrome'}`,
+                deviceType: 'browser',
+                platform: 'chrome',
+                storageCapacity: null,
+                storageAvailable: null
+            });
+
+            if (result.success) {
+                this.showToast('Device registered successfully', 'success');
+                await this.loadDevices();
+                await this.loadRaidStatus();
+            } else {
+                this.showToast(`Failed to register device: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showToast(`Error registering device: ${error.message}`, 'error');
+        }
+    }
+
+    async loadDevices() {
+        try {
+            const api = new FlynasAPIService(this.config.apiUrl || 'http://localhost:3000', this.authToken);
+            const result = await api.listDevices();
+
+            if (result.success && result.devices) {
+                this.renderDevicesList(result.devices);
+                this.updateDeviceSelection(result.devices);
+                this.updateRaidConfigUI();
+            }
+        } catch (error) {
+            console.error('Error loading devices:', error);
+        }
+    }
+
+    renderDevicesList(devices) {
+        const container = document.getElementById('devices-list');
+        
+        if (devices.length === 0) {
+            container.innerHTML = '<p class="muted">No devices registered</p>';
+            return;
+        }
+
+        container.innerHTML = devices.map(device => {
+            const statusClass = device.status === 'online' ? 'device-status-online' : 'device-status-offline';
+            return `
+                <div class="device-item">
+                    <div class="device-item-name">${this.escapeHtml(device.device_name)}</div>
+                    <div class="device-item-meta">
+                        ${device.platform} • ${device.device_type} • 
+                        <span class="device-status-badge ${statusClass}">${device.status}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    updateDeviceSelection(devices) {
+        const container = document.getElementById('device-selection-list');
+        const onlineDevices = devices.filter(d => d.status === 'online');
+
+        if (onlineDevices.length === 0) {
+            container.innerHTML = '<p class="muted">No online devices available</p>';
+            return;
+        }
+
+        container.innerHTML = onlineDevices.map(device => `
+            <div class="device-selection-item">
+                <input type="checkbox" id="device-${device.device_id}" value="${device.device_id}">
+                <label for="device-${device.device_id}">${this.escapeHtml(device.device_name)} (${device.platform})</label>
+            </div>
+        `).join('');
+    }
+
+    async loadRaidStatus() {
+        try {
+            const api = new FlynasAPIService(this.config.apiUrl || 'http://localhost:3000', this.authToken);
+            const result = await api.getRaidStatus();
+
+            if (result.success && result.status) {
+                this.renderRaidStatus(result.status);
+            }
+        } catch (error) {
+            console.error('Error loading RAID status:', error);
+        }
+    }
+
+    renderRaidStatus(status) {
+        const badge = document.getElementById('raid-health-badge');
+        const details = document.getElementById('raid-status-details');
+
+        if (!status.configured) {
+            badge.textContent = 'Not Configured';
+            badge.className = 'badge badge-gray';
+            details.innerHTML = '<p class="muted">No RAID configuration found.</p>';
+            document.getElementById('delete-raid-btn').disabled = true;
+            document.getElementById('heal-raid-btn').disabled = true;
+            return;
+        }
+
+        const config = status.config;
+        const health = status.health || 'unknown';
+        
+        badge.textContent = health.toUpperCase();
+        badge.className = `badge badge-${health === 'healthy' ? 'success' : health === 'degraded' ? 'warning' : 'danger'}`;
+
+        details.innerHTML = `
+            <p><strong>RAID Level:</strong> ${config.raid_level}</p>
+            <p><strong>Chunk Size:</strong> ${this.formatFileSize(config.chunk_size)}</p>
+            <p><strong>Devices:</strong> ${status.online_devices}/${status.total_devices} online</p>
+        `;
+
+        document.getElementById('delete-raid-btn').disabled = false;
+        document.getElementById('heal-raid-btn').disabled = false;
+    }
+
+    updateRaidConfigUI() {
+        const raidLevel = document.getElementById('raid-level').value;
+        const selectedDevices = document.querySelectorAll('#device-selection-list input[type="checkbox"]:checked');
+        const configureBtn = document.getElementById('configure-raid-btn');
+
+        let minDevices = 0;
+        if (raidLevel === '1') minDevices = 2;
+        else if (raidLevel === '5') minDevices = 3;
+        else if (raidLevel === '10') minDevices = 4;
+
+        const canConfigure = raidLevel && selectedDevices.length >= minDevices;
+        configureBtn.disabled = !canConfigure;
+    }
+
+    async configureRaid() {
+        const raidLevel = document.getElementById('raid-level').value;
+        const chunkSize = parseInt(document.getElementById('chunk-size').value);
+        const selectedDevices = Array.from(
+            document.querySelectorAll('#device-selection-list input[type="checkbox"]:checked')
+        ).map(cb => cb.value);
+
+        if (!raidLevel || selectedDevices.length === 0) {
+            this.showToast('Please select RAID level and devices', 'error');
+            return;
+        }
+
+        try {
+            const api = new FlynasAPIService(this.config.apiUrl || 'http://localhost:3000', this.authToken);
+            const result = await api.configureRaid(raidLevel, chunkSize, selectedDevices);
+
+            if (result.success) {
+                this.showToast('RAID configured successfully', 'success');
+                await this.loadRaidStatus();
+            } else {
+                this.showToast(`RAID configuration failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showToast(`Error configuring RAID: ${error.message}`, 'error');
+        }
+    }
+
+    async deleteRaidConfig() {
+        if (!confirm('Delete RAID configuration? This will not delete files.')) {
+            return;
+        }
+
+        try {
+            const api = new FlynasAPIService(this.config.apiUrl || 'http://localhost:3000', this.authToken);
+            const result = await api.deleteRaidConfig();
+
+            if (result.success) {
+                this.showToast('RAID configuration deleted', 'success');
+                await this.loadRaidStatus();
+            } else {
+                this.showToast(`Failed to delete RAID configuration: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showToast(`Error deleting RAID configuration: ${error.message}`, 'error');
+        }
+    }
+
+    async healRaid() {
+        this.showToast('Starting RAID healing...', 'info');
+
+        try {
+            const api = new FlynasAPIService(this.config.apiUrl || 'http://localhost:3000', this.authToken);
+            const result = await api.healRaid();
+
+            if (result.success) {
+                this.showToast('RAID healing completed', 'success');
+                await this.loadRaidStatus();
+            } else {
+                this.showToast(`RAID healing failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showToast(`Error during RAID healing: ${error.message}`, 'error');
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 

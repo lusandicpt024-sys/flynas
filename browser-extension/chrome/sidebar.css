@@ -572,6 +572,221 @@ body {
     font-size: 14px;
 }
 
+/* Settings Sections */
+.settings-section {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-of-type {
+    border-bottom: none;
+}
+
+.settings-section h4 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    color: var(--dark-color);
+}
+
+.settings-section h5 {
+    font-size: 13px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.large-modal .modal-content {
+    max-width: 650px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* RAID Status Panel */
+.raid-status-panel {
+    background: var(--light-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.raid-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.raid-status-title {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.badge {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-gray {
+    background: var(--secondary-color);
+    color: white;
+}
+
+.badge-success {
+    background: var(--success-color);
+    color: white;
+}
+
+.badge-warning {
+    background: var(--warning-color);
+    color: #212529;
+}
+
+.badge-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+.raid-status-details {
+    font-size: 12px;
+    color: var(--text-color);
+}
+
+.raid-status-details p {
+    margin: 4px 0;
+}
+
+.raid-status-details .muted {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Device Management */
+.device-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.devices-list-panel {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.device-item {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 12px;
+}
+
+.device-item:last-child {
+    border-bottom: none;
+}
+
+.device-item-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.device-item-meta {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.device-status-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.device-status-online {
+    background: #d4edda;
+    color: #155724;
+}
+
+.device-status-offline {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* RAID Config Form */
+.form-row {
+    margin-bottom: 12px;
+}
+
+.form-row label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 13px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.device-selection-list {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 8px;
+    background: var(--light-color);
+    margin-bottom: 12px;
+}
+
+.device-selection-item {
+    display: flex;
+    align-items: center;
+    padding: 6px;
+    margin-bottom: 6px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.device-selection-item input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.device-selection-item label {
+    margin: 0;
+    flex: 1;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.form-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.muted {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
 /* Responsive */
 @media (max-width: 480px) {
     .header {

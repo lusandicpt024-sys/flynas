@@ -1,9 +1,11 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, Tray, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const os = require('os');
 const { FileSystemAdapter } = require('../../shared/fileManager/fileManager.js');
 const { AuthManager } = require('../../shared/auth/authManager.js');
 const { EncryptionManager } = require('../../shared/encryption/encryptionManager.js');
+const CloudSyncService = require('./services/CloudSyncService.js');
 
 // Enable live reload for development
 if (process.env.NODE_ENV === 'development') {
@@ -20,6 +22,7 @@ class FlynasDesktop {
     this.fileManager = null;
     this.authManager = null;
     this.encryptionManager = null;
+    this.cloudSyncService = null;
     this.isDevMode = process.argv.includes('--dev');
     
     this.init();
@@ -36,6 +39,8 @@ class FlynasDesktop {
     });
 
     this.encryptionManager = new EncryptionManager();
+
+    this.cloudSyncService = new CloudSyncService('http://localhost:3000');
 
     // Set up Electron app events
     app.whenReady().then(() => this.createWindow());
@@ -301,6 +306,113 @@ class FlynasDesktop {
 
     ipcMain.handle('window:close', () => {
       this.mainWindow.close();
+    });
+
+    // System info handlers
+    ipcMain.handle('system:get-os', () => {
+      return os.platform();
+    });
+
+    ipcMain.handle('system:get-hostname', () => {
+      return os.hostname();
+    });
+
+    ipcMain.handle('system:get-storage-info', async () => {
+      try {
+        // This is a simplified version - in production, use a proper library like 'diskusage'
+        const homeDir = os.homedir();
+        return {
+          total: 100 * 1024 * 1024 * 1024, // 100GB placeholder
+          available: 50 * 1024 * 1024 * 1024 // 50GB placeholder
+        };
+      } catch (error) {
+        return null;
+      }
+    });
+
+    // RAID Device Management Handlers
+    ipcMain.handle('raid:register-device', async (event, deviceInfo) => {
+      try {
+        const result = await this.cloudSyncService.registerDevice(deviceInfo);
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('raid:list-devices', async () => {
+      try {
+        const result = await this.cloudSyncService.listDevices();
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('raid:send-heartbeat', async (event, deviceId, storageAvailable) => {
+      try {
+        const result = await this.cloudSyncService.sendHeartbeat(deviceId, storageAvailable);
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('raid:unregister-device', async (event, deviceId) => {
+      try {
+        const result = await this.cloudSyncService.unregisterDevice(deviceId);
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    // RAID Configuration Handlers
+    ipcMain.handle('raid:configure', async (event, raidLevel, chunkSize, deviceIds) => {
+      try {
+        const result = await this.cloudSyncService.configureRaid(raidLevel, chunkSize, deviceIds);
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('raid:get-status', async () => {
+      try {
+        const result = await this.cloudSyncService.getRaidStatus();
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('raid:heal', async () => {
+      try {
+        const result = await this.cloudSyncService.healRaid();
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('raid:delete-config', async () => {
+      try {
+        const result = await this.cloudSyncService.deleteRaidConfig();
+        return result;
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
+    // RAID Chunk Verification Handler
+    ipcMain.handle('raid:verify-chunks', async () => {
+      try {
+        // This would need to iterate through chunks and verify them
+        // Placeholder implementation
+        return { success: true, valid: 0, invalid: 0 };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
     });
   }
 

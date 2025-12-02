@@ -144,27 +144,93 @@
 
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content large-modal">
             <h3>Settings</h3>
-            <div class="setting-group">
-                <label>
-                    <input type="checkbox" id="auto-sync"> Auto-sync files
-                </label>
+            
+            <div class="settings-section">
+                <h4>General</h4>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="auto-sync"> Auto-sync files
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="encryption-enabled"> Enable encryption
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="notifications"> Show notifications
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label for="api-url">API URL:</label>
+                    <input type="url" id="api-url" placeholder="https://api.flynas.com">
+                </div>
             </div>
-            <div class="setting-group">
-                <label>
-                    <input type="checkbox" id="encryption-enabled"> Enable encryption
-                </label>
+
+            <div class="settings-section">
+                <h4>RAID Configuration</h4>
+                
+                <div id="raid-status-panel" class="raid-status-panel">
+                    <div class="raid-status-header">
+                        <span class="raid-status-title">RAID Status</span>
+                        <span id="raid-health-badge" class="badge badge-gray">Not Configured</span>
+                    </div>
+                    <div id="raid-status-details" class="raid-status-details">
+                        <p class="muted">No RAID configuration found.</p>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <h5>Device Management</h5>
+                    <div class="device-actions">
+                        <button id="register-device-btn" class="secondary-btn">Register This Device</button>
+                        <button id="refresh-devices-btn" class="secondary-btn">Refresh</button>
+                    </div>
+                    <div id="devices-list-panel" class="devices-list-panel">
+                        <div id="devices-list">
+                            <p class="muted">No devices registered</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <h5>RAID Setup</h5>
+                    <div class="form-row">
+                        <label for="raid-level">RAID Level:</label>
+                        <select id="raid-level" class="form-control">
+                            <option value="">Select RAID Level</option>
+                            <option value="1">RAID 1 - Mirroring (2+ devices)</option>
+                            <option value="5">RAID 5 - Parity (3+ devices)</option>
+                            <option value="10">RAID 10 - Striped Mirrors (4+ devices)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="chunk-size">Chunk Size:</label>
+                        <select id="chunk-size" class="form-control">
+                            <option value="262144">256 KB</option>
+                            <option value="524288" selected>512 KB</option>
+                            <option value="1048576">1 MB</option>
+                        </select>
+                    </div>
+                    <div id="device-selection-list" class="device-selection-list">
+                        <p class="muted">Register devices first</p>
+                    </div>
+                    <div class="form-actions">
+                        <button id="configure-raid-btn" class="primary-btn" disabled>Configure RAID</button>
+                        <button id="delete-raid-btn" class="secondary-btn" disabled>Delete Configuration</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <h5>RAID Maintenance</h5>
+                    <button id="heal-raid-btn" class="secondary-btn" disabled>Heal RAID Array</button>
+                    <p class="muted">Healing reconstructs missing or corrupted chunks from redundancy.</p>
+                </div>
             </div>
-            <div class="setting-group">
-                <label>
-                    <input type="checkbox" id="notifications"> Show notifications
-                </label>
-            </div>
-            <div class="setting-group">
-                <label for="api-url">API URL:</label>
-                <input type="url" id="api-url" placeholder="https://api.flynas.com">
-            </div>
+
             <div class="modal-actions">
                 <button id="close-settings-btn" class="secondary-btn">Close</button>
                 <button id="save-settings-btn" class="primary-btn">Save</button>
@@ -172,6 +238,7 @@
         </div>
     </div>
 
+    <script src="api-service.js"></script>
     <script src="sidebar.js"></script>
 </body>
 </html>

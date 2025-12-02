@@ -44,11 +44,22 @@ body {
 .app-icon {
     width: 16px;
     height: 16px;
+    object-fit: contain;
+}
+
+.app-icon[src*="app.png"] {
+    /* Hide broken image icon */
+    display: none;
 }
 
 .app-title {
     font-size: 12px;
     font-weight: 500;
+}
+
+.app-title::before {
+    content: '☁️ ';
+    font-size: 14px;
 }
 
 .title-bar-right {
@@ -177,8 +188,12 @@ body {
 
 .nav-link i {
     margin-right: 12px;
-    width: 16px;
+    width: 20px;
     text-align: center;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Storage Info */
@@ -548,6 +563,288 @@ input[type="text"]:focus {
     font-weight: 500;
 }
 
+.setting-section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 2px solid #e9ecef;
+}
+
+.setting-section h3 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: #333;
+}
+
+.setting-section h4 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: #495057;
+    font-weight: 600;
+}
+
+/* RAID Status Panel */
+.raid-status-panel {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.raid-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.raid-status-title {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-gray {
+    background: #6c757d;
+    color: white;
+}
+
+.badge-success {
+    background: #28a745;
+    color: white;
+}
+
+.badge-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.badge-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.raid-status-details {
+    font-size: 13px;
+    color: #495057;
+}
+
+.raid-status-details p {
+    margin-bottom: 8px;
+}
+
+.raid-status-details .muted {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Device Management */
+.device-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.devices-list-panel {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.devices-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.devices-table thead {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.devices-table th {
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+}
+
+.devices-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.devices-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.devices-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.devices-table .no-data td {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 24px;
+}
+
+.device-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.device-status-online {
+    background: #d4edda;
+    color: #155724;
+}
+
+.device-status-offline {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.device-action-btn {
+    background: none;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 8px;
+    text-decoration: underline;
+}
+
+.device-action-btn:hover {
+    color: #0056b3;
+}
+
+/* RAID Config Form */
+.raid-config-form .form-row {
+    margin-bottom: 16px;
+}
+
+.raid-config-form label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 13px;
+    background: white;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.device-selection-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 12px;
+    background: #f8f9fa;
+}
+
+.device-selection-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.device-selection-item input[type="checkbox"] {
+    margin-right: 12px;
+}
+
+.device-selection-item label {
+    margin: 0;
+    flex: 1;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.device-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.device-info-name {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.device-info-meta {
+    font-size: 11px;
+    color: #6c757d;
+}
+
+.form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* RAID Maintenance */
+.raid-maintenance {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.raid-maintenance p {
+    margin-top: 8px;
+}
+
+/* Button Styles */
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    border: 1px solid #dc3545;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #c82333;
+    border-color: #bd2130;
+}
+
+.btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.muted {
+    color: #6c757d;
+    font-size: 12px;
+}
+
 /* Progress Styles */
 .progress-list {
     max-height: 300px;
@@ -591,18 +888,31 @@ input[type="text"]:focus {
 }
 
 /* Icon Font (simplified) */
+[class^="icon-"]::before,
+[class*=" icon-"]::before {
+    font-style: normal;
+    font-weight: normal;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    display: inline-block;
+    font-size: 16px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
 .icon-user::before { content: '👤'; }
 .icon-folder::before { content: '📁'; }
 .icon-share::before { content: '🔗'; }
 .icon-device::before { content: '💻'; }
 .icon-settings::before { content: '⚙️'; }
-.icon-arrow-left::before { content: '←'; }
-.icon-arrow-right::before { content: '→'; }
-.icon-arrow-up::before { content: '↑'; }
+.icon-arrow-left::before { content: '←'; font-size: 18px; }
+.icon-arrow-right::before { content: '→'; font-size: 18px; }
+.icon-arrow-up::before { content: '↑'; font-size: 18px; }
 .icon-upload::before { content: '📤'; }
-.icon-folder-plus::before { content: '📁+'; }
-.icon-grid::before { content: '⊞'; }
-.icon-upload-cloud::before { content: '☁️'; }
+.icon-folder-plus::before { content: '📁➕'; }
+.icon-grid::before { content: '⊞'; font-size: 18px; }
+.icon-upload-cloud::before { content: '☁️📤'; }
 
 /* Responsive Design */
 @media (max-width: 768px) {

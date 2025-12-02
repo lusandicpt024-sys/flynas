@@ -26,6 +26,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.invoke('window:close')
   },
 
+  // System info methods
+  system: {
+    getOS: () => ipcRenderer.invoke('system:get-os'),
+    getHostname: () => ipcRenderer.invoke('system:get-hostname'),
+    getStorageInfo: () => ipcRenderer.invoke('system:get-storage-info')
+  },
+
+  // RAID methods
+  raid: {
+    // Device management
+    registerDevice: (deviceInfo) => ipcRenderer.invoke('raid:register-device', deviceInfo),
+    listDevices: () => ipcRenderer.invoke('raid:list-devices'),
+    sendHeartbeat: (deviceId, storageAvailable) => 
+      ipcRenderer.invoke('raid:send-heartbeat', deviceId, storageAvailable),
+    unregisterDevice: (deviceId) => ipcRenderer.invoke('raid:unregister-device', deviceId),
+
+    // RAID configuration
+    configureRaid: (raidLevel, chunkSize, deviceIds) => 
+      ipcRenderer.invoke('raid:configure', raidLevel, chunkSize, deviceIds),
+    getRaidStatus: () => ipcRenderer.invoke('raid:get-status'),
+    healRaid: () => ipcRenderer.invoke('raid:heal'),
+    deleteRaidConfig: () => ipcRenderer.invoke('raid:delete-config'),
+
+    // Chunk operations
+    verifyChunks: () => ipcRenderer.invoke('raid:verify-chunks')
+  },
+
   // Event listeners
   on: (channel, callback) => {
     const validChannels = [

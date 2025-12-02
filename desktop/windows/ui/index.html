@@ -164,6 +164,91 @@
                                     Auto-sync with browser extension
                                 </label>
                             </div>
+
+                            <!-- RAID Configuration Section -->
+                            <div class="setting-section">
+                                <h3>RAID Configuration</h3>
+                                
+                                <div id="raid-status-panel" class="raid-status-panel">
+                                    <div class="raid-status-header">
+                                        <span class="raid-status-title">RAID Status</span>
+                                        <span id="raid-health-badge" class="badge badge-gray">Not Configured</span>
+                                    </div>
+                                    <div id="raid-status-details" class="raid-status-details">
+                                        <p class="muted">No RAID configuration found. Register devices and configure RAID for multi-device redundancy.</p>
+                                    </div>
+                                </div>
+
+                                <div class="setting-group">
+                                    <h4>Device Management</h4>
+                                    <div class="device-actions">
+                                        <button id="register-device-btn" class="btn-primary">Register This Device</button>
+                                        <button id="refresh-devices-btn" class="btn-secondary">Refresh Devices</button>
+                                    </div>
+                                    <div id="devices-list-panel" class="devices-list-panel">
+                                        <table id="devices-table" class="devices-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Device Name</th>
+                                                    <th>Type</th>
+                                                    <th>Platform</th>
+                                                    <th>Status</th>
+                                                    <th>Storage</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="devices-table-body">
+                                                <tr class="no-data">
+                                                    <td colspan="6">No devices registered</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div class="setting-group">
+                                    <h4>RAID Setup</h4>
+                                    <div class="raid-config-form">
+                                        <div class="form-row">
+                                            <label for="raid-level">RAID Level:</label>
+                                            <select id="raid-level" class="form-control">
+                                                <option value="">Select RAID Level</option>
+                                                <option value="1">RAID 1 - Mirroring (2+ devices)</option>
+                                                <option value="5">RAID 5 - Parity (3+ devices)</option>
+                                                <option value="10">RAID 10 - Striped Mirrors (4+ devices)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-row">
+                                            <label for="chunk-size">Chunk Size:</label>
+                                            <select id="chunk-size" class="form-control">
+                                                <option value="262144">256 KB</option>
+                                                <option value="524288" selected>512 KB</option>
+                                                <option value="1048576">1 MB</option>
+                                                <option value="2097152">2 MB</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-row">
+                                            <label>Select Devices:</label>
+                                            <div id="device-selection-list" class="device-selection-list">
+                                                <p class="muted">Register devices first</p>
+                                            </div>
+                                        </div>
+                                        <div class="form-actions">
+                                            <button id="configure-raid-btn" class="btn-primary" disabled>Configure RAID</button>
+                                            <button id="delete-raid-btn" class="btn-danger" disabled>Delete Configuration</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="setting-group">
+                                    <h4>RAID Maintenance</h4>
+                                    <div class="raid-maintenance">
+                                        <button id="heal-raid-btn" class="btn-secondary" disabled>Heal RAID Array</button>
+                                        <button id="verify-chunks-btn" class="btn-secondary" disabled>Verify All Chunks</button>
+                                        <p class="muted">Healing checks for missing or corrupted chunks and reconstructs them from redundancy.</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -210,7 +295,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="progress-close-btn" class="btn-secondary">Close</button>
+                <button id="cancel-progress-btn" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
@@ -233,20 +318,6 @@
             <div class="modal-footer">
                 <button id="editor-cancel-btn" class="btn-secondary">Close</button>
                 <button id="editor-save-btn" class="btn-primary">Save</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="scripts/app.js"></script>
-</body>
-</html>
-            <div class="modal-body">
-                <div id="progress-list" class="progress-list">
-                    <!-- Progress items will be added here -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="cancel-progress-btn" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>

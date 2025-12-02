@@ -75,6 +75,47 @@ class FlynasApp {
             this.showNewFolderModal();
         });
 
+        // New folder modal
+        document.getElementById('create-folder-btn').addEventListener('click', () => {
+            this.createFolder();
+        });
+
+        document.getElementById('cancel-folder-btn').addEventListener('click', () => {
+            this.hideNewFolderModal();
+        });
+
+        // Settings
+        document.getElementById('browse-storage-btn').addEventListener('click', () => {
+            this.browseStorage();
+        });
+
+        // RAID Device Management
+        document.getElementById('register-device-btn').addEventListener('click', () => {
+            this.registerDevice();
+        });
+        document.getElementById('refresh-devices-btn').addEventListener('click', () => {
+            this.loadDevices();
+        });
+
+        // RAID Configuration
+        document.getElementById('configure-raid-btn').addEventListener('click', () => {
+            this.configureRaid();
+        });
+        document.getElementById('delete-raid-btn').addEventListener('click', () => {
+            this.deleteRaidConfig();
+        });
+        document.getElementById('raid-level').addEventListener('change', () => {
+            this.updateRaidConfigUI();
+        });
+
+        // RAID Maintenance
+        document.getElementById('heal-raid-btn').addEventListener('click', () => {
+            this.healRaid();
+        });
+        document.getElementById('verify-chunks-btn').addEventListener('click', () => {
+            this.verifyAllChunks();
+        });
+
         // Search and sort
         document.getElementById('search-input').addEventListener('input', (e) => {
             this.searchQuery = e.target.value.toLowerCase();
@@ -88,20 +129,6 @@ class FlynasApp {
             this.sortAscending = !this.sortAscending;
             document.getElementById('sort-direction-indicator').textContent = this.sortAscending ? '⬇️' : '⬆️';
             this.applyFilterAndSort();
-        });
-
-        // New folder modal
-        document.getElementById('create-folder-btn').addEventListener('click', () => {
-            this.createFolder();
-        });
-
-        document.getElementById('cancel-folder-btn').addEventListener('click', () => {
-            this.hideNewFolderModal();
-        });
-
-        // Settings
-        document.getElementById('browse-storage-btn').addEventListener('click', () => {
-            this.browseStorage();
         });
 
         // Menu event listeners
@@ -130,7 +157,6 @@ class FlynasApp {
                 this.createFolder();
             }
         });
-
         // Editor modal
         document.getElementById('editor-cancel-btn').addEventListener('click', () => {
             this.closeEditor();
@@ -146,7 +172,6 @@ class FlynasApp {
         });
         document.getElementById('editor-text').addEventListener('input', (e) => {
             this.onEditorChange(e.target.value);
-            }
         });
     }
 
@@ -586,9 +611,13 @@ class FlynasApp {
         this.showStatus('Loading connected devices...', 'info');
     }
 
-    loadSettings() {
+    async loadSettings() {
         // Load current settings
         this.showStatus('Settings loaded', 'info');
+        
+        // Load RAID status and devices
+        await this.loadRaidStatus();
+        await this.loadDevices();
     }
 
     showStatus(message, type = 'info') {
@@ -618,6 +647,7 @@ class FlynasApp {
             if (res.success) {
                 const text = res.content || '';
                 document.getElementById('editor-text').value = text;
+                // Initialize undo history baseline
                 this.editor.undoStack.push(text);
                 document.getElementById('editor-status').textContent = 'Loaded';
             } else {
@@ -647,6 +677,7 @@ class FlynasApp {
             if (this.editor.undoStack.length > this.editor.maxHistory) {
                 this.editor.undoStack.shift();
             }
+            // Clear redo on new input
             this.editor.redoStack = [];
         }
 
@@ -697,9 +728,298 @@ class FlynasApp {
             this.editor.autosaveTimer = setTimeout(() => this.saveEditorFile(true), this.editor.autosaveDelayMs);
         }
     }
+
+    // ===== RAID Management Methods =====
+
+    async registerDevice() {
+        try {
+            const os = await window.electronAPI.system.getOS();
+            const hostname = await window.electronAPI.system.getHostname();
+            const storage = await window.electronAPI.system.getStorageInfo();
+
+            const result = await window.electronAPI.raid.registerDevice({
+                deviceName: hostname || 'Linux Desktop',
+                deviceType: 'desktop',
+                platform: os || 'linux',
+                storageCapacity: storage?.total || null,
+                storageAvailable: storage?.available || null
+            });
+
+            if (result.success) {
+                this.showStatus('Device registered successfully', 'success');
+                await this.loadDevices();
+                await this.loadRaidStatus();
+            } else {
+                this.showStatus(`Failed to register device: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showStatus(`Error registering device: ${error.message}`, 'error');
+        }
+    }
+
+    async loadDevices() {
+        try {
+            const result = await window.electronAPI.raid.listDevices();
+
+            if (result.success && result.devices) {
+                this.renderDevicesTable(result.devices);
+                this.updateDeviceSelection(result.devices);
+                this.updateRaidConfigUI();
+            } else {
+                this.renderDevicesTable([]);
+            }
+        } catch (error) {
+            console.error('Error loading devices:', error);
+            this.showStatus(`Error loading devices: ${error.message}`, 'error');
+        }
+    }
+
+    renderDevicesTable(devices) {
+        const tbody = document.getElementById('devices-table-body');
+        
+        if (devices.length === 0) {
+            tbody.innerHTML = '<tr class="no-data"><td colspan="6">No devices registered</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = devices.map(device => {
+            const statusClass = device.status === 'online' ? 'device-status-online' : 'device-status-offline';
+            const storage = device.storage_capacity 
+                ? `${this.formatBytes(device.storage_available || 0)} / ${this.formatBytes(device.storage_capacity)}`
+                : 'N/A';
+
+            return `
+                <tr>
+                    <td>${this.escapeHtml(device.device_name)}</td>
+                    <td>${this.escapeHtml(device.device_type)}</td>
+                    <td>${this.escapeHtml(device.platform)}</td>
+                    <td><span class="device-status-badge ${statusClass}">${device.status}</span></td>
+                    <td>${storage}</td>
+                    <td>
+                        <button class="device-action-btn" onclick="flynasApp.sendHeartbeat('${device.device_id}')">Heartbeat</button>
+                        <button class="device-action-btn" onclick="flynasApp.unregisterDevice('${device.device_id}')">Remove</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    updateDeviceSelection(devices) {
+        const container = document.getElementById('device-selection-list');
+        const onlineDevices = devices.filter(d => d.status === 'online');
+
+        if (onlineDevices.length === 0) {
+            container.innerHTML = '<p class="muted">No online devices available</p>';
+            return;
+        }
+
+        container.innerHTML = onlineDevices.map(device => `
+            <div class="device-selection-item">
+                <input type="checkbox" id="device-${device.device_id}" value="${device.device_id}">
+                <label for="device-${device.device_id}">
+                    <div class="device-info">
+                        <span class="device-info-name">${this.escapeHtml(device.device_name)}</span>
+                        <span class="device-info-meta">${device.platform} • ${device.device_type}</span>
+                    </div>
+                </label>
+            </div>
+        `).join('');
+    }
+
+    async sendHeartbeat(deviceId) {
+        try {
+            const storage = await window.electronAPI.system.getStorageInfo();
+            const result = await window.electronAPI.raid.sendHeartbeat(deviceId, storage?.available);
+
+            if (result.success) {
+                this.showStatus('Heartbeat sent', 'success');
+                await this.loadDevices();
+            } else {
+                this.showStatus(`Heartbeat failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showStatus(`Error sending heartbeat: ${error.message}`, 'error');
+        }
+    }
+
+    async unregisterDevice(deviceId) {
+        if (!confirm('Are you sure you want to unregister this device?')) {
+            return;
+        }
+
+        try {
+            const result = await window.electronAPI.raid.unregisterDevice(deviceId);
+
+            if (result.success) {
+                this.showStatus('Device unregistered', 'success');
+                await this.loadDevices();
+                await this.loadRaidStatus();
+            } else {
+                this.showStatus(`Failed to unregister device: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showStatus(`Error unregistering device: ${error.message}`, 'error');
+        }
+    }
+
+    async loadRaidStatus() {
+        try {
+            const result = await window.electronAPI.raid.getRaidStatus();
+
+            if (result.success && result.status) {
+                this.renderRaidStatus(result.status);
+            }
+        } catch (error) {
+            console.error('Error loading RAID status:', error);
+        }
+    }
+
+    renderRaidStatus(status) {
+        const badge = document.getElementById('raid-health-badge');
+        const details = document.getElementById('raid-status-details');
+
+        if (!status.configured) {
+            badge.textContent = 'Not Configured';
+            badge.className = 'badge badge-gray';
+            details.innerHTML = '<p class="muted">No RAID configuration found. Register devices and configure RAID for multi-device redundancy.</p>';
+            document.getElementById('delete-raid-btn').disabled = true;
+            document.getElementById('heal-raid-btn').disabled = true;
+            document.getElementById('verify-chunks-btn').disabled = true;
+            return;
+        }
+
+        const config = status.config;
+        const health = status.health || 'unknown';
+        
+        // Update badge
+        badge.textContent = health.toUpperCase();
+        badge.className = `badge badge-${health === 'healthy' ? 'success' : health === 'degraded' ? 'warning' : 'danger'}`;
+
+        // Update details
+        details.innerHTML = `
+            <p><strong>RAID Level:</strong> ${config.raid_level}</p>
+            <p><strong>Chunk Size:</strong> ${this.formatBytes(config.chunk_size)}</p>
+            <p><strong>Devices:</strong> ${status.online_devices} online / ${status.total_devices} total</p>
+            <p><strong>Status:</strong> ${config.active ? 'Active' : 'Inactive'}</p>
+        `;
+
+        document.getElementById('delete-raid-btn').disabled = false;
+        document.getElementById('heal-raid-btn').disabled = false;
+        document.getElementById('verify-chunks-btn').disabled = false;
+    }
+
+    updateRaidConfigUI() {
+        const raidLevel = document.getElementById('raid-level').value;
+        const selectedDevices = document.querySelectorAll('#device-selection-list input[type="checkbox"]:checked');
+        const configureBtn = document.getElementById('configure-raid-btn');
+
+        let minDevices = 0;
+        if (raidLevel === '1') minDevices = 2;
+        else if (raidLevel === '5') minDevices = 3;
+        else if (raidLevel === '10') minDevices = 4;
+
+        const canConfigure = raidLevel && selectedDevices.length >= minDevices;
+        configureBtn.disabled = !canConfigure;
+
+        if (raidLevel && selectedDevices.length < minDevices) {
+            this.showStatus(`RAID ${raidLevel} requires at least ${minDevices} devices`, 'warning');
+        }
+    }
+
+    async configureRaid() {
+        const raidLevel = document.getElementById('raid-level').value;
+        const chunkSize = parseInt(document.getElementById('chunk-size').value);
+        const selectedDevices = Array.from(
+            document.querySelectorAll('#device-selection-list input[type="checkbox"]:checked')
+        ).map(cb => cb.value);
+
+        if (!raidLevel || selectedDevices.length === 0) {
+            this.showStatus('Please select RAID level and devices', 'error');
+            return;
+        }
+
+        try {
+            const result = await window.electronAPI.raid.configureRaid(raidLevel, chunkSize, selectedDevices);
+
+            if (result.success) {
+                this.showStatus('RAID configured successfully', 'success');
+                await this.loadRaidStatus();
+            } else {
+                this.showStatus(`RAID configuration failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showStatus(`Error configuring RAID: ${error.message}`, 'error');
+        }
+    }
+
+    async deleteRaidConfig() {
+        if (!confirm('Are you sure you want to delete the RAID configuration? This will not delete your files, but RAID redundancy will be disabled.')) {
+            return;
+        }
+
+        try {
+            const result = await window.electronAPI.raid.deleteRaidConfig();
+
+            if (result.success) {
+                this.showStatus('RAID configuration deleted', 'success');
+                await this.loadRaidStatus();
+            } else {
+                this.showStatus(`Failed to delete RAID configuration: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showStatus(`Error deleting RAID configuration: ${error.message}`, 'error');
+        }
+    }
+
+    async healRaid() {
+        this.showStatus('Starting RAID healing...', 'info');
+
+        try {
+            const result = await window.electronAPI.raid.healRaid();
+
+            if (result.success) {
+                this.showStatus('RAID healing completed', 'success');
+                await this.loadRaidStatus();
+            } else {
+                this.showStatus(`RAID healing failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showStatus(`Error during RAID healing: ${error.message}`, 'error');
+        }
+    }
+
+    async verifyAllChunks() {
+        this.showStatus('Verifying all chunks...', 'info');
+
+        try {
+            const result = await window.electronAPI.raid.verifyChunks();
+
+            if (result.success) {
+                this.showStatus(`Verification complete: ${result.valid} valid, ${result.invalid} invalid`, 'success');
+            } else {
+                this.showStatus(`Chunk verification failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showStatus(`Error verifying chunks: ${error.message}`, 'error');
+        }
+    }
+
+    formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 }
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new FlynasApp();
+    window.flynasApp = new FlynasApp();
 });
