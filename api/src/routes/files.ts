@@ -5,6 +5,7 @@ import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database/db';
 import { authenticateToken } from '../middleware/auth';
+import { splitFileIntoChunks, calculateParity, selectDevicesForDistribution, calculateChunkHash } from '../utils/raid';
 
 const router = Router();
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
@@ -70,6 +71,7 @@ router.post(
       const userId = req.user!.userId;
       const isEncrypted = req.body.isEncrypted === 'true';
 
+      // Insert file record
       await db.run(
         `INSERT INTO files (id, user_id, filename, original_name, file_path, file_size, mime_type, is_encrypted)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -85,6 +87,108 @@ router.post(
         ]
       );
 
+      // Check if user has RAID configured
+      const raidConfig = await db.get<any>(
+        'SELECT * FROM raid_config WHERE user_id = ? AND active = 1',
+        [userId]
+      );
+
+      let chunkInfo = null;
+
+      if (raidConfig) {
+        try {
+          // Read file data
+          const fileData = fs.readFileSync(req.file.path);
+
+          // Split into chunks
+          const chunks = splitFileIntoChunks(fileData, raidConfig.chunk_size);
+
+          // Get available devices
+          const devices = await db.all<any>(
+            `SELECT dr.* FROM device_registry dr
+             JOIN raid_devices rd ON dr.device_id = rd.device_id
+             WHERE rd.config_id = ? AND dr.status = 'online'`,
+            [raidConfig.config_id]
+          );
+
+          if (devices.length >= raidConfig.min_devices) {
+            // Select devices for distribution
+            const distribution = selectDevicesForDistribution(
+              devices,
+              raidConfig.raid_level,
+              chunks.length
+            );
+
+            // Store chunk metadata
+            const chunkIds = [];
+            for (let i = 0; i < chunks.length; i++) {
+              const chunkId = uuidv4();
+              const chunkHash = calculateChunkHash(chunks[i]);
+
+              await db.run(
+                `INSERT INTO file_chunks (chunk_id, file_id, chunk_index, chunk_size, chunk_hash, is_parity)
+                 VALUES (?, ?, ?, ?, ?, 0)`,
+                [chunkId, fileId, i, chunks[i].length, chunkHash]
+              );
+
+              // Store chunk locations
+              const deviceIds = distribution.get(i) || [];
+              for (const deviceId of deviceIds) {
+                const locationId = uuidv4();
+                await db.run(
+                  `INSERT INTO chunk_locations (id, chunk_id, device_id, storage_path, status)
+                   VALUES (?, ?, ?, ?, 'pending')`,
+                  [locationId, chunkId, deviceId, '']
+                );
+              }
+
+              chunkIds.push(chunkId);
+            }
+
+            // For RAID 5, calculate and store parity chunks
+            if (raidConfig.raid_level === '5' && chunks.length >= 2) {
+              const parityChunk = calculateParity(chunks);
+              const parityChunkId = uuidv4();
+              const parityHash = calculateChunkHash(parityChunk);
+
+              await db.run(
+                `INSERT INTO file_chunks (chunk_id, file_id, chunk_index, chunk_size, chunk_hash, is_parity)
+                 VALUES (?, ?, ?, ?, ?, 1)`,
+                [parityChunkId, fileId, chunks.length, parityChunk.length, parityHash]
+              );
+
+              // Distribute parity chunk
+              const parityDeviceIds = distribution.get(chunks.length) || [devices[0].device_id];
+              for (const deviceId of parityDeviceIds) {
+                const locationId = uuidv4();
+                await db.run(
+                  `INSERT INTO chunk_locations (id, chunk_id, device_id, storage_path, status)
+                   VALUES (?, ?, ?, ?, 'pending')`,
+                  [locationId, parityChunkId, deviceId, '']
+                );
+              }
+
+              chunkIds.push(parityChunkId);
+            }
+
+            chunkInfo = {
+              raid_enabled: true,
+              raid_level: raidConfig.raid_level,
+              total_chunks: chunks.length,
+              parity_chunks: raidConfig.raid_level === '5' ? 1 : 0,
+              chunk_ids: chunkIds,
+              distribution: Array.from(distribution.entries()).map(([index, deviceIds]) => ({
+                chunk_index: index,
+                devices: deviceIds
+              }))
+            };
+          }
+        } catch (error) {
+          console.error('RAID chunking error:', error);
+          // Continue without RAID if there's an error
+        }
+      }
+
       res.status(201).json({
         message: 'File uploaded successfully',
         file: {
@@ -93,7 +197,8 @@ router.post(
           size: req.file.size,
           mimeType: req.file.mimetype,
           isEncrypted
-        }
+        },
+        raid: chunkInfo
       });
     } catch (error) {
       next(error);
@@ -188,6 +293,9 @@ router.delete(
       if (fs.existsSync(file.file_path)) {
         fs.unlinkSync(file.file_path);
       }
+
+      // Delete chunks (this will cascade to chunk_locations via foreign key)
+      await db.run('DELETE FROM file_chunks WHERE file_id = ?', [fileId]);
 
       // Delete from database
       await db.run('DELETE FROM files WHERE id = ?', [fileId]);

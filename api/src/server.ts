@@ -6,6 +6,9 @@ import fs from 'fs';
 import authRoutes from './routes/auth';
 import fileRoutes from './routes/files';
 import encryptionRoutes from './routes/encryption';
+import devicesRoutes from './routes/devices';
+import raidRoutes from './routes/raid';
+import chunksRoutes from './routes/chunks';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -38,6 +41,9 @@ if (!fs.existsSync(dataDir)) {
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/encryption', encryptionRoutes);
+app.use('/api/devices', devicesRoutes);
+app.use('/api/raid', raidRoutes);
+app.use('/api/chunks', chunksRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

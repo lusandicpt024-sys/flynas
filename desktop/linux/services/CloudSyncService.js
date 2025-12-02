@@ -300,6 +300,370 @@ class CloudSyncService {
   getCurrentUser() {
     return this.user;
   }
+
+  // ===== RAID Device Management =====
+
+  /**
+   * Register this device for RAID
+   */
+  async registerDevice(deviceName, deviceType, platform, storageCapacity, storageAvailable) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.post('/devices/register', {
+        device_name: deviceName,
+        device_type: deviceType,
+        platform: platform,
+        storage_capacity: storageCapacity,
+        storage_available: storageAvailable
+      });
+
+      return {
+        success: true,
+        device: response.data.device
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * List all registered devices
+   */
+  async listDevices() {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.get('/devices/list');
+      return {
+        success: true,
+        devices: response.data.devices
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Send heartbeat for device
+   */
+  async sendHeartbeat(deviceId, storageAvailable) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      await this.client.put(`/devices/${deviceId}/heartbeat`, {
+        storage_available: storageAvailable
+      });
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Unregister a device
+   */
+  async unregisterDevice(deviceId) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      await this.client.delete(`/devices/${deviceId}/unregister`);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  // ===== RAID Configuration =====
+
+  /**
+   * Configure RAID for user
+   */
+  async configureRaid(raidLevel, chunkSize, deviceIds) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.post('/raid/configure', {
+        raid_level: raidLevel,
+        chunk_size: chunkSize,
+        device_ids: deviceIds
+      });
+
+      return {
+        success: true,
+        config: response.data.config
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Get RAID status
+   */
+  async getRaidStatus() {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.get('/raid/status');
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Heal RAID array
+   */
+  async healRaid() {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.put('/raid/heal');
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Reconstruct file from RAID
+   */
+  async reconstructFile(fileId) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.post('/raid/reconstruct', {
+        file_id: fileId
+      });
+
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Delete RAID configuration
+   */
+  async deleteRaidConfig() {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      await this.client.delete('/raid/configure');
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  // ===== Chunk Management =====
+
+  /**
+   * Upload chunk to device
+   */
+  async uploadChunk(chunkId, fileId, chunkIndex, deviceId, chunkData) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('chunk_id', chunkId);
+      formData.append('file_id', fileId);
+      formData.append('chunk_index', chunkIndex);
+      formData.append('device_id', deviceId);
+      formData.append('chunk', chunkData);
+
+      const response = await this.client.post('/chunks/upload', formData, {
+        headers: {
+          ...formData.getHeaders()
+        }
+      });
+
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Download chunk from device
+   */
+  async downloadChunk(chunkId, deviceId) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.get(`/chunks/${chunkId}/download`, {
+        params: { device_id: deviceId },
+        responseType: 'arraybuffer'
+      });
+
+      return {
+        success: true,
+        data: Buffer.from(response.data),
+        hash: response.headers['x-chunk-hash']
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Verify chunk integrity
+   */
+  async verifyChunk(chunkId, deviceId) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.post('/chunks/verify', {
+        chunk_id: chunkId,
+        device_id: deviceId
+      });
+
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Delete chunk
+   */
+  async deleteChunk(chunkId, deviceId) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      await this.client.delete(`/chunks/${chunkId}`, {
+        params: { device_id: deviceId }
+      });
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * List chunks for a file
+   */
+  async listFileChunks(fileId) {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.get(`/chunks/file/${fileId}`);
+      return {
+        success: true,
+        chunks: response.data.chunks
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
+
+  /**
+   * Get chunks needing reconstruction
+   */
+  async getNeedsReconstruction() {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    try {
+      const response = await this.client.get('/chunks/needs-reconstruction');
+      return {
+        success: true,
+        chunks: response.data.chunks
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
+    }
+  }
 }
 
 module.exports = CloudSyncService;
