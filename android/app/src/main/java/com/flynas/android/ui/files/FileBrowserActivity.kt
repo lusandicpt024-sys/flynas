@@ -173,8 +173,9 @@ class FileBrowserActivity : AppCompatActivity(), NavigationView.OnNavigationItem
     private fun refreshFileList() {
         allFilesList.clear()
         
-        val files = storageManager.getAllFiles()
-        for (file in files) {
+        // Get all items (files and folders)
+        val items = storageManager.getAllItems()
+        for (file in items) {
             val metadata = storageManager.loadFileMetadata(file)
             val fileItem = FileItem(
                 name = file.name,

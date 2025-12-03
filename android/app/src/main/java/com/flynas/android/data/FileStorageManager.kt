@@ -72,9 +72,21 @@ class FileStorageManager(private val context: Context) {
     }
     
     /**
+     * Get all files and folders in Flynas storage
+     */
+    fun getAllItems(): List<File> {
+        return flynasDir.listFiles()?.toList() ?: emptyList()
+    }
+    
+    /**
      * Get file size in human-readable format
      */
     fun getFileSize(file: File): String {
+        // For folders, show item count
+        if (file.isDirectory) {
+            val itemCount = file.listFiles()?.size ?: 0
+            return "$itemCount items"
+        }
         val size = file.length()
         return when {
             size < 1024 -> "$size B"
