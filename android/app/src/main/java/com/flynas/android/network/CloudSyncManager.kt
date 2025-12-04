@@ -35,6 +35,15 @@ class CloudSyncManager(private val context: Context) {
         
         // To test on physical device, change BASE_URL above to your computer's local IP
         // Find your IP: Linux/Mac: `ip addr` or `ifconfig`, Windows: `ipconfig`
+        
+        @Volatile
+        private var instance: CloudSyncManager? = null
+        
+        fun getInstance(context: Context): CloudSyncManager {
+            return instance ?: synchronized(this) {
+                instance ?: CloudSyncManager(context.applicationContext).also { instance = it }
+            }
+        }
     }
     
     data class AuthResult(
@@ -719,7 +728,7 @@ class CloudSyncManager(private val context: Context) {
 
                 val request = Request.Builder()
                     .url("$API_BASE/raid/heal")
-                    .put(RequestBody.create(null, ByteArray(0)))
+                    .put(ByteArray(0).toRequestBody(null))
                     .addHeader("Authorization", "Bearer $token")
                     .build()
 
