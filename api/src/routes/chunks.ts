@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Database } from '../database/db';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateChunkHash, verifyChunkIntegrity } from '../utils/raid';
+import { encryptData, decryptData } from '../utils/encryption';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -9,9 +10,47 @@ const router = Router();
 const db = new Database();
 
 const CHUNKS_DIR = process.env.CHUNKS_DIR || './data/chunks';
+const CHUNK_ENCRYPTION_PASSWORD = process.env.CHUNK_ENCRYPTION_PASSWORD || '';
+const ENCRYPTION_MAGIC = Buffer.from('ENC1');
 
 // Ensure chunks directory exists
 fs.mkdir(CHUNKS_DIR, { recursive: true }).catch(console.error);
+
+function isEncryptionEnabled(): boolean {
+  return CHUNK_ENCRYPTION_PASSWORD.length > 0;
+}
+
+function serializeEncryptedPayload(encrypted: Buffer): Buffer {
+  return Buffer.concat([ENCRYPTION_MAGIC, encrypted]);
+}
+
+function isEncryptedPayload(data: Buffer): boolean {
+  return data.subarray(0, ENCRYPTION_MAGIC.length).equals(ENCRYPTION_MAGIC);
+}
+
+function parseStoredChunk(data: Buffer): Buffer {
+  if (!isEncryptionEnabled()) {
+    return data;
+  }
+  if (!isEncryptedPayload(data)) {
+    // No magic header; treat as plaintext for backward compatibility
+    return data;
+  }
+  const ciphertext = data.subarray(ENCRYPTION_MAGIC.length);
+  const decrypted = decryptData(ciphertext, CHUNK_ENCRYPTION_PASSWORD);
+  if (!decrypted) {
+    throw new Error('Failed to decrypt chunk data');
+  }
+  return decrypted;
+}
+
+function prepareChunkForStorage(plaintext: Buffer): Buffer {
+  if (!isEncryptionEnabled()) {
+    return plaintext;
+  }
+  const encrypted = encryptData(plaintext, CHUNK_ENCRYPTION_PASSWORD);
+  return serializeEncryptedPayload(encrypted);
+}
 
 // Upload a chunk to this device
 router.post('/upload', async (req: Request, res: Response) => {
@@ -45,8 +84,9 @@ router.post('/upload', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No chunk data provided' });
     }
 
-    // Calculate hash
-    const hash = calculateChunkHash(chunkData.data);
+    // Calculate hash on plaintext
+    const plaintextChunk = Buffer.from(chunkData.data);
+    const hash = calculateChunkHash(plaintextChunk);
 
     // Get or create chunk record
     let chunk = await db.get<any>(
@@ -63,11 +103,12 @@ router.post('/upload', async (req: Request, res: Response) => {
       );
     }
 
-    // Store chunk file
+    // Store chunk file (encrypted at rest if enabled)
     const chunkPath = path.join(CHUNKS_DIR, user_id, device_id);
     await fs.mkdir(chunkPath, { recursive: true });
     const chunkFile = path.join(chunkPath, `${chunk_id}.chunk`);
-    await fs.writeFile(chunkFile, chunkData.data);
+    const toStore = prepareChunkForStorage(plaintextChunk);
+    await fs.writeFile(chunkFile, toStore);
 
     // Record chunk location
     const location_id = uuidv4();
@@ -115,10 +156,20 @@ router.get('/:chunk_id/download', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Chunk not found on this device' });
     }
 
-    // Read chunk file
-    const chunkData = await fs.readFile(location.storage_path);
+    // Read chunk file and decrypt if needed
+    const storedData = await fs.readFile(location.storage_path);
+    let chunkData: Buffer;
+    try {
+      chunkData = parseStoredChunk(storedData);
+    } catch (err) {
+      await db.run(
+        `UPDATE chunk_locations SET status = 'corrupted' WHERE id = ?`,
+        [location.id]
+      );
+      return res.status(500).json({ error: 'Chunk decryption failed' });
+    }
 
-    // Verify integrity
+    // Verify integrity on plaintext
     if (!verifyChunkIntegrity(chunkData, location.chunk_hash)) {
       // Mark chunk as corrupted
       await db.run(
@@ -168,10 +219,25 @@ router.post('/verify', async (req: Request, res: Response) => {
     }
 
     try {
-      // Read chunk file
-      const chunkData = await fs.readFile(location.storage_path);
+      // Read chunk file and decrypt if needed
+      const storedData = await fs.readFile(location.storage_path);
+      let chunkData: Buffer;
+      try {
+        chunkData = parseStoredChunk(storedData);
+      } catch (err) {
+        await db.run(
+          `UPDATE chunk_locations SET status = 'corrupted' WHERE id = ?`,
+          [location.id]
+        );
+        return res.json({
+          valid: false,
+          chunk_id,
+          device_id,
+          error: 'Chunk decryption failed'
+        });
+      }
 
-      // Verify integrity
+      // Verify integrity on plaintext
       const isValid = verifyChunkIntegrity(chunkData, location.chunk_hash);
 
       if (isValid) {
@@ -316,5 +382,8 @@ router.get('/needs-reconstruction', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to list chunks needing reconstruction' });
   }
 });
+
+// Export helper functions for testing
+export { parseStoredChunk, prepareChunkForStorage };
 
 export default router;
