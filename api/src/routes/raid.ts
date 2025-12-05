@@ -240,11 +240,41 @@ router.put('/heal', async (req: Request, res: Response) => {
       );
     }
 
+    // Log healing event
+    const { v4: uuidv4 } = require('uuid');
+    const eventId = uuidv4();
+    const onlineDevices = devices.length - offlineDevices.length;
+
+    await db.run(
+      `INSERT INTO healing_events (
+        id, user_id, config_id, event_type, trigger, 
+        offline_device_count, online_device_count, total_device_count,
+        chunks_marked_for_reconstruction, details, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        eventId,
+        user_id,
+        config.config_id,
+        'manual-heal',
+        'user-triggered',
+        offlineDevices.length,
+        onlineDevices,
+        devices.length,
+        chunksToMove.length,
+        JSON.stringify({
+          trigger: 'user-triggered',
+          offline_devices: offlineDevices,
+          chunks_affected: chunksToMove.length
+        })
+      ]
+    );
+
     res.json({
       success: true,
       message: 'Healing initiated',
       offline_devices: offlineDevices.length,
-      chunks_marked_for_reconstruction: chunksToMove.length
+      chunks_marked_for_reconstruction: chunksToMove.length,
+      event_id: eventId
     });
   } catch (error) {
     console.error('RAID heal error:', error);
@@ -360,6 +390,59 @@ router.delete('/configure', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('RAID delete error:', error);
     res.status(500).json({ error: 'Failed to delete RAID configuration' });
+  }
+});
+
+// Get RAID healing history
+router.get('/healing/history', async (req: Request, res: Response) => {
+  try {
+    const user_id = (req as any).user?.userId;
+
+    if (!user_id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const events = await db.all<any>(
+      `SELECT id, config_id, event_type, trigger, offline_device_count, 
+              online_device_count, total_device_count, chunks_marked_for_reconstruction,
+              details, created_at
+       FROM healing_events 
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      [user_id, limit, offset]
+    );
+
+    const total = await db.get<any>(
+      'SELECT COUNT(*) as count FROM healing_events WHERE user_id = ?',
+      [user_id]
+    );
+
+    res.json({
+      events: events.map(e => ({
+        id: e.id,
+        configId: e.config_id,
+        type: e.event_type,
+        trigger: e.trigger,
+        offlineDevices: e.offline_device_count,
+        onlineDevices: e.online_device_count,
+        totalDevices: e.total_device_count,
+        chunksMarked: e.chunks_marked_for_reconstruction,
+        details: e.details ? JSON.parse(e.details) : {},
+        createdAt: e.created_at
+      })),
+      pagination: {
+        total: total?.count || 0,
+        limit,
+        offset
+      }
+    });
+  } catch (error) {
+    console.error('Healing history error:', error);
+    res.status(500).json({ error: 'Failed to get healing history' });
   }
 });
 

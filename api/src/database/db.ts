@@ -151,6 +151,25 @@ export class Database {
       )
     `);
 
+    // RAID healing events log table
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS healing_events (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        config_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        trigger TEXT NOT NULL,
+        offline_device_count INTEGER DEFAULT 0,
+        online_device_count INTEGER DEFAULT 0,
+        total_device_count INTEGER DEFAULT 0,
+        chunks_marked_for_reconstruction INTEGER DEFAULT 0,
+        details TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (config_id) REFERENCES raid_config(config_id) ON DELETE CASCADE
+      )
+    `);
+
     // Create indexes for RAID tables
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_device_registry_user_id ON device_registry(user_id)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_device_registry_status ON device_registry(status)`);
@@ -158,6 +177,9 @@ export class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_file_chunks_file_id ON file_chunks(file_id)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_chunk_locations_chunk_id ON chunk_locations(chunk_id)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_chunk_locations_device_id ON chunk_locations(device_id)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_healing_events_user_id ON healing_events(user_id)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_healing_events_config_id ON healing_events(config_id)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_healing_events_created_at ON healing_events(created_at)`);
 
     console.log('✅ Database tables initialized');
   }

@@ -10,6 +10,7 @@ import devicesRoutes from './routes/devices';
 import raidRoutes from './routes/raid';
 import chunksRoutes from './routes/chunks';
 import { errorHandler } from './middleware/errorHandler';
+import { startRaidHealthMonitor } from './services/raidHealthMonitor';
 
 // Load environment variables
 dotenv.config();
@@ -62,6 +63,10 @@ app.listen(PORT, () => {
   console.log(`🚀 Flynas API Server running on port ${PORT}`);
   console.log(`📁 Upload directory: ${path.resolve(uploadDir)}`);
   console.log(`🗄️  Database: ${process.env.DB_PATH || './data/flynas.db'}`);
+
+  // Start RAID health monitor service
+  const monitorInterval = parseInt(process.env.RAID_MONITOR_INTERVAL_MINUTES || '2');
+  startRaidHealthMonitor(monitorInterval);
 });
 
 export default app;
