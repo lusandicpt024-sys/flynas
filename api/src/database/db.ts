@@ -53,6 +53,29 @@ export class Database {
       CREATE INDEX IF NOT EXISTS idx_files_user_id ON files(user_id)
     `);
 
+    // Folders table
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS folders (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        folder_name TEXT NOT NULL,
+        parent_id TEXT,
+        path TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create index on user_id and parent_id for faster queries
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_folders_user_id ON folders(user_id)
+    `);
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_id)
+    `);
+
     // Device registry table for RAID
     this.db.run(`
       CREATE TABLE IF NOT EXISTS device_registry (

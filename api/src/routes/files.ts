@@ -307,6 +307,101 @@ router.delete(
   }
 );
 
+// Create a new folder
+router.post(
+  '/folders',
+  authenticateToken,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId;
+      const { folderName, parentPath } = req.body;
+
+      if (!folderName || typeof folderName !== 'string') {
+        return res.status(400).json({ error: 'folderName is required and must be a string' });
+      }
+
+      // Validate folder name (no slashes or special characters)
+      if (folderName.includes('/') || folderName.includes('\\') || folderName.length === 0) {
+        return res.status(400).json({ error: 'Invalid folder name' });
+      }
+
+      // Construct full path
+      const fullPath = parentPath ? `${parentPath}/${folderName}` : `/${folderName}`;
+
+      // Check if folder already exists
+      const existing = await db.get<any>(
+        'SELECT id FROM folders WHERE user_id = ? AND path = ?',
+        [userId, fullPath]
+      );
+
+      if (existing) {
+        return res.status(409).json({ error: 'Folder already exists' });
+      }
+
+      // Find parent folder ID
+      let parentId = null;
+      if (parentPath && parentPath !== '/') {
+        const parentFolder = await db.get<any>(
+          'SELECT id FROM folders WHERE user_id = ? AND path = ?',
+          [userId, parentPath]
+        );
+        parentId = parentFolder?.id || null;
+      }
+
+      // Create folder record
+      const folderId = uuidv4();
+      await db.run(
+        `INSERT INTO folders (id, user_id, folder_name, parent_id, path, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [folderId, userId, folderName, parentId, fullPath]
+      );
+
+      res.status(201).json({
+        success: true,
+        folder: {
+          id: folderId,
+          name: folderName,
+          path: fullPath,
+          parentId: parentId,
+          createdAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// List folders for current path
+router.get(
+  '/folders',
+  authenticateToken,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId;
+      const currentPath = req.query.path as string || '/';
+
+      const folders = await db.all<any>(
+        `SELECT id, folder_name, path, created_at FROM folders 
+         WHERE user_id = ? AND (path LIKE ? OR parent_id = (SELECT id FROM folders WHERE user_id = ? AND path = ?))
+         ORDER BY folder_name ASC`,
+        [userId, `${currentPath}/%`, userId, currentPath]
+      );
+
+      res.json({
+        folders: folders.map(folder => ({
+          id: folder.id,
+          name: folder.folder_name,
+          path: folder.path,
+          createdAt: folder.created_at
+        }))
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Sync endpoint - get changes since timestamp
 router.get(
   '/sync/changes',

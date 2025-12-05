@@ -166,6 +166,11 @@ class FlynasBackground {
                     sendResponse({ success: true });
                     break;
                     
+                case 'create-folder':
+                    const folderResult = await this.handleCreateFolder(message.data);
+                    sendResponse(folderResult);
+                    break;
+                    
                 default:
                     sendResponse({ success: false, error: 'Unknown action' });
             }
@@ -390,6 +395,45 @@ class FlynasBackground {
         });
         
         return { success: true };
+    }
+
+    async handleCreateFolder(data) {
+        try {
+            const { name, path } = data;
+            const config = await this.getConfig();
+            const authToken = await this.getAuthToken();
+
+            if (!authToken) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            if (!name) {
+                return { success: false, error: 'Folder name is required' };
+            }
+
+            const response = await fetch(`${config.apiUrl}/files/folders`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    folderName: name,
+                    parentPath: path || '/'
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                return { success: false, error: error.error || 'Failed to create folder' };
+            }
+
+            const result = await response.json();
+            return { success: true, folder: result.folder };
+        } catch (error) {
+            console.error('Create folder error:', error);
+            return { success: false, error: error.message };
+        }
     }
 
     // Storage methods

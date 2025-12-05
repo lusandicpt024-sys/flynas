@@ -110,6 +110,22 @@ class FlynasAPIService {
         return await this.request(url);
     }
 
+    // ===== Folder Operations =====
+
+    async createFolder(folderName, parentPath = '/') {
+        return await this.request('/files/folders', {
+            method: 'POST',
+            body: JSON.stringify({
+                folderName: folderName,
+                parentPath: parentPath
+            })
+        });
+    }
+
+    async listFolders(currentPath = '/') {
+        return await this.request(`/files/folders?path=${encodeURIComponent(currentPath)}`);
+    }
+
     // ===== RAID Device Management =====
 
     /**
